@@ -3,7 +3,13 @@ use thiserror::Error;
 
 #[derive(Serialize)]
 pub struct Comment {
-    pub id: i32,
+    pub id: i64,
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(Deserialize)]
+pub struct PostComment {
     pub name: String,
     pub content: String,
 }
@@ -62,6 +68,21 @@ impl Repo {
                 }
                 actix_web::Result::Ok(comments)
             },
+        }
+    }
+
+    pub fn post_comment(&self, data: PostComment) -> Result<Comment, RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                let mut stmt = conn.prepare("insert into comments (name, content) values (?1, ?2)")?;
+                let id = stmt.insert([data.name.clone(), data.content.clone()])?;
+                Ok(Comment {
+                    id,
+                    name: data.name,
+                    content: data.content,
+                })
+            }
         }
     }
 }
