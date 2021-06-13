@@ -36,7 +36,7 @@ function addComment(root, comment) {
   name.textContent = `${comment.name} - ${comment.created}`;
   container.appendChild(name);
   const content = document.createElement('div');
-  content.innerHTML = comment.content;
+  content.innerHTML = comment.html;
   container.appendChild(content);
   const actions = document.createElement('div');
   const replies = document.createElement('div');

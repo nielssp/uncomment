@@ -1,6 +1,7 @@
 use actix_web::{App, HttpResponse, HttpServer, ResponseError, error::{self}, get, post, web};
-use db::{PostComment, Repo, RepoError, SqlitePool};
+use db::{NewComment, Repo, RepoError, SqlitePool};
 use log::{debug, info};
+use pulldown_cmark::Parser;
 use r2d2_sqlite::SqliteConnectionManager;
 use serde::Deserialize;
 
@@ -10,6 +11,12 @@ mod db;
 struct CommentRequest {
     t: String,
     parent_id: Option<i64>,
+}
+
+#[derive(Deserialize)]
+pub struct NewCommentData {
+    pub name: String,
+    pub content: String,
 }
 
 impl ResponseError for RepoError {
@@ -25,7 +32,7 @@ async fn get_comments(request: web::Query<CommentRequest>, repo: web::Data<Repo>
 #[post("/")]
 async fn post_comment(
     request: web::Query<CommentRequest>,
-    data: web::Json<PostComment>,
+    data: web::Json<NewCommentData>,
     repo: web::Data<Repo>
 ) -> actix_web::Result<HttpResponse> {
     let thread = match repo.get_thread(request.t.clone())? {
@@ -54,7 +61,15 @@ async fn post_comment(
             Ok(None)
         }
     }?;
-    let comment = repo.post_comment(thread.id, parent, data.into_inner())?;
+    let parser = Parser::new(data.content.as_str());
+    let mut unsafe_html = String::new();
+    pulldown_cmark::html::push_html(&mut unsafe_html, parser);
+    let safe_html = ammonia::clean(&*unsafe_html);
+    let comment = repo.post_comment(thread.id, parent, NewComment {
+        name: data.name.clone(),
+        markdown: data.content.clone(),
+        html: safe_html,
+    })?;
     Ok(HttpResponse::Ok().json(comment))
 }
 

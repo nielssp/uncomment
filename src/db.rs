@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use chrono::Local;
 use log::{debug, info};
@@ -18,7 +18,7 @@ pub struct Comment {
     pub id: i64,
     pub parent_id: Option<i64>,
     pub name: String,
-    pub content: String,
+    pub html: String,
     pub created: String,
     pub replies: Vec<Comment>,
 }
@@ -30,10 +30,10 @@ pub struct CommentPosition {
     pub hierarchy: String,
 }
 
-#[derive(Deserialize)]
-pub struct PostComment {
+pub struct NewComment {
     pub name: String,
-    pub content: String,
+    pub html: String,
+    pub markdown: String,
 }
 
 #[derive(Serialize)]
@@ -84,7 +84,8 @@ impl Repo {
                             parent_id integer null,
                             hierarchy text(100) not null,
                             name text(100) not null,
-                            content text not null,
+                            html text not null,
+                            markdown text not null,
                             created text not null
                         )", []
                     )?;
@@ -116,10 +117,11 @@ impl Repo {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
                 let mut stmt = conn.prepare(
-                    "select c.id, c.parent_id, c.name, c.content, c.created \
+                    "select c.id, c.parent_id, c.name, c.html, c.created \
                     from comments c \
                     inner join threads t on t.id = c.thread_id
-                    where t.name = ?")?;
+                    where t.name = ?
+                    order by c.hierarchy asc")?;
                 let mut rows = stmt.query([thread_name])?;
                 let mut root = Vec::new();
                 let mut replies: HashMap<i64, Vec<Comment>> = HashMap::new();
@@ -128,7 +130,7 @@ impl Repo {
                         id: row.get(0)?,
                         parent_id: row.get(1)?,
                         name: row.get(2)?,
-                        content: row.get(3)?,
+                        html: row.get(3)?,
                         created: row.get(4)?,
                         replies: vec![],
                     };
@@ -207,7 +209,7 @@ impl Repo {
         &self,
         thread_id: i64,
         parent: Option<CommentPosition>,
-        data: PostComment
+        data: NewComment
     ) -> Result<Comment, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
@@ -216,14 +218,15 @@ impl Repo {
                 let parent_id = parent.as_ref().map(|p| p.id);
                 let hierarchy = parent.as_ref().map(|p| format!("{}/{}", p.hierarchy, p.id));
                 let mut insert = conn.prepare(
-                    "insert into comments (thread_id, parent_id, hierarchy, name, content, created) \
-                    values (:thread_id, :parent_id, :hierarchy, :name, :content, :created)")?;
+                    "insert into comments (thread_id, parent_id, hierarchy, name, html, markdown, created) \
+                    values (:thread_id, :parent_id, :hierarchy, :name, :html, :markdown, :created)")?;
                 let id = insert.insert(named_params! {
                     ":thread_id": thread_id,
                     ":parent_id": parent_id,
                     ":hierarchy": hierarchy.unwrap_or("".to_owned()),
                     ":name": data.name.clone(),
-                    ":content": data.content.clone(),
+                    ":html": data.html.clone(),
+                    ":markdown": data.markdown.clone(),
                     ":created": now.to_rfc3339(),
                 })?;
                 if parent.is_none() {
@@ -236,7 +239,7 @@ impl Repo {
                     id,
                     parent_id,
                     name: data.name,
-                    content: data.content,
+                    html: data.html,
                     created: now.to_rfc3339(),
                     replies: vec![],
                 })

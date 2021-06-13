@@ -5,14 +5,25 @@ authors = ["Niels Sonnich Poulsen <niels@nielssp.dk>"]
 edition = "2018"
 
 [dependencies]
-actix-web = "3"
-actix-cors = "0.5"
+# Logging and error handling
 log = "0.4"
 env_logger = "0.8"
+thiserror = "1.0"
+
+# Dates
+chrono = "0.4"
+
+# Web service
+actix-web = "3"
+actix-cors = "0.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Markdown and HTML sanitazion
+pulldown-cmark = "0.8"
+ammonia = "3"
+
+# Database
 r2d2 = "0.8"
 r2d2_sqlite = "0.18"
 rusqlite = "0.25"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "1.0"
-chrono = "0.4"
