@@ -6,6 +6,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use serde::Deserialize;
 
 mod db;
+mod migrations;
 
 #[derive(Deserialize)]
 struct CommentRequest {

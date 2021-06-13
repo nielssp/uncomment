@@ -1,10 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::Local;
 use log::{debug, info};
 use rusqlite::{OptionalExtension, named_params, params};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::migrations::SQLITE_MIGRATIONS;
 
 #[derive(Serialize)]
 pub struct Thread {
@@ -63,35 +65,32 @@ impl Repo {
                 let conn = pool.get()?;
                 let mut stmt = conn.prepare("pragma table_info('versions')")?;
                 let mut rows = stmt.query([])?;
+                let mut versions: HashSet<String> = HashSet::new();
                 if rows.next()?.is_none() {
-                    info!("Installing SQLite3 database...");
+                    info!("Installing new SQLite3 database...");
                     conn.execute(
                         "create table versions (
                             version text not null
                         )", []
                     )?;
-                    conn.execute(
-                        "create table threads (
-                            id integer primary key autoincrement,
-                            name text(100) unique not null,
-                            title text(100) null
-                        )", []
+                } else {
+                    let mut get_versions = conn.prepare("select version from versions")?;
+                    versions = get_versions.query_map([], |row| row.get(0)).and_then(Iterator::collect)?;
+                }
+                for (name, statements) in SQLITE_MIGRATIONS {
+                    if versions.contains(name.to_owned()) {
+                        continue;
+                    }
+                    info!("Running migration: {}", name);
+                    let mut conn = pool.get()?;
+                    let tx = conn.transaction()?;
+                    for statement in statements.iter() {
+                        tx.execute(statement, [])?;
+                    }
+                    tx.execute(
+                        "insert into versions values (?1)", [name]
                     )?;
-                    conn.execute(
-                        "create table comments (
-                            id integer primary key autoincrement,
-                            thread_id integer not null,
-                            parent_id integer null,
-                            hierarchy text(100) not null,
-                            name text(100) not null,
-                            html text not null,
-                            markdown text not null,
-                            created text not null
-                        )", []
-                    )?;
-                    conn.execute(
-                        "insert into versions values (?1)", ["1"]
-                    )?;
+                    tx.commit()?;
                 }
                 Ok(())
             },
