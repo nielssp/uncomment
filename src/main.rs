@@ -93,6 +93,7 @@ async fn main() -> std::io::Result<()> {
             .data(repo.clone())
             .service(get_comments)
             .service(post_comment)
+            .service(actix_files::Files::new("/", "dist"))
     })
     .bind("127.0.0.1:5000")?
     .run()

@@ -1,15 +1,47 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <style type="text/css">
+.uncomment * {
+  box-sizing: border-box;
+}
+
+.uncomment .comment {
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  padding-top: 1em;
+  margin: 1em auto;
+}
+
+.uncomment .comments > .comment:first-of-type {
+  border-top: none;
+  padding-top: none;
+}
+
+.uncomment .comment-header {
+  font-size: 0.8em;
+}
+
+.uncomment .comment-header > .author {
+  font-weight: bold;
+}
+
+.uncomment .comment-header > .author::after {
+  content: '\2022';
+  display: inline-block;
+  margin: 0 0.5em;
+}
+
+.uncomment .comment-actions {
+  font-size: 0.8em;
+}
+
+.uncomment .replies {
+  margin-left: 4em;
+}
+    </style>
   </head>
   <body>
-    <form id="new-comment">
-      <label>Name: <input type="text" name="name"/></label><br/>
-      <label>Comment: <textarea name="content"></textarea></label><br/>
-      <button type="submit">Submit</button>
-    </form>
-    <div id="comments">
-    </div>
-    <script src="demo.js"></script>
+    <div id="comments"></div>
+    <script data-uncomment data-uncomment-target="#comments" data-uncomment-id="test" src="http://localhost:5000/embed.js"></script>
   </body>
 </html>
