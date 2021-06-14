@@ -17,6 +17,8 @@ struct CommentRequest {
 #[derive(Deserialize)]
 pub struct NewCommentData {
     pub name: String,
+    pub email: String,
+    pub website: String,
     pub content: String,
 }
 
@@ -68,6 +70,8 @@ async fn post_comment(
     let safe_html = ammonia::clean(&*unsafe_html);
     let comment = repo.post_comment(thread.id, parent, NewComment {
         name: data.name.clone(),
+        email: data.email.clone(),
+        website: data.website.clone(),
         markdown: data.content.clone(),
         html: safe_html,
     })?;

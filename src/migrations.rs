@@ -13,6 +13,8 @@ pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])]
          parent_id integer null,
          hierarchy text(100) not null,
          name text(100) not null,
+         email text(100) not null,
+         website text(100) not null,
          html text not null,
          markdown text not null,
          created text not null

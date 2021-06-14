@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use chrono::Local;
+use chrono::{DateTime, Local};
 use log::{debug, info};
 use rusqlite::{OptionalExtension, named_params, params};
 use serde::{Deserialize, Serialize};
@@ -20,8 +20,10 @@ pub struct Comment {
     pub id: i64,
     pub parent_id: Option<i64>,
     pub name: String,
+    pub website: String,
     pub html: String,
     pub created: String,
+    pub created_timestamp: i64,
     pub replies: Vec<Comment>,
 }
 
@@ -34,6 +36,8 @@ pub struct CommentPosition {
 
 pub struct NewComment {
     pub name: String,
+    pub email: String,
+    pub website: String,
     pub html: String,
     pub markdown: String,
 }
@@ -56,6 +60,8 @@ pub enum RepoError {
     R2d2Error(#[from] r2d2::Error),
     #[error("sqlite error")]
     SqliteError(#[from] rusqlite::Error),
+    #[error("chrono error")]
+    ChronoError(#[from] chrono::ParseError),
 }
 
 impl Repo {
@@ -116,7 +122,7 @@ impl Repo {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
                 let mut stmt = conn.prepare(
-                    "select c.id, c.parent_id, c.name, c.html, c.created \
+                    "select c.id, c.parent_id, c.name, c.website, c.html, c.created \
                     from comments c \
                     inner join threads t on t.id = c.thread_id
                     where t.name = ?
@@ -125,12 +131,16 @@ impl Repo {
                 let mut root = Vec::new();
                 let mut replies: HashMap<i64, Vec<Comment>> = HashMap::new();
                 while let Some(row) = rows.next()? {
+                    let created_string: String = row.get(5)?;
+                    let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
                     let comment = Comment {
                         id: row.get(0)?,
                         parent_id: row.get(1)?,
                         name: row.get(2)?,
-                        html: row.get(3)?,
-                        created: row.get(4)?,
+                        website: row.get(3)?,
+                        html: row.get(4)?,
+                        created: created.to_rfc3339(),
+                        created_timestamp: created.timestamp(),
                         replies: vec![],
                     };
                     match comment.parent_id {
@@ -217,13 +227,15 @@ impl Repo {
                 let parent_id = parent.as_ref().map(|p| p.id);
                 let hierarchy = parent.as_ref().map(|p| format!("{}/{}", p.hierarchy, p.id));
                 let mut insert = conn.prepare(
-                    "insert into comments (thread_id, parent_id, hierarchy, name, html, markdown, created) \
-                    values (:thread_id, :parent_id, :hierarchy, :name, :html, :markdown, :created)")?;
+                    "insert into comments (thread_id, parent_id, hierarchy, name, email, website, html, markdown, created) \
+                    values (:thread_id, :parent_id, :hierarchy, :name, :email, :website, :html, :markdown, :created)")?;
                 let id = insert.insert(named_params! {
                     ":thread_id": thread_id,
                     ":parent_id": parent_id,
                     ":hierarchy": hierarchy.unwrap_or("".to_owned()),
                     ":name": data.name.clone(),
+                    ":email": data.email.clone(),
+                    ":website": data.website.clone(),
                     ":html": data.html.clone(),
                     ":markdown": data.markdown.clone(),
                     ":created": now.to_rfc3339(),
@@ -238,8 +250,10 @@ impl Repo {
                     id,
                     parent_id,
                     name: data.name,
+                    website: data.website,
                     html: data.html,
                     created: now.to_rfc3339(),
+                    created_timestamp: now.timestamp(),
                     replies: vec![],
                 })
             }

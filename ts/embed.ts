@@ -1,6 +1,6 @@
 const mainTemplate = '<form data-bind="newCommentForm"></form><div class="comments" data-bind="comments"></div>';
-const formTemplate = '<input type="text" name="name" placeholder="Name"/><br/><textarea name="content" placeholder="Comment"></textarea><br/><button type="submit">Submit</button>';
-const commentTemplate = `<div class="comment"><div class="comment-header"><span class="author" data-bind="author"></span><time data-bind="created"></time></div><div class="comment-body" data-bind="content"></div><div class="comment-actions"><a href="#" data-bind="replyLink">Reply</a></div><form data-bind="replyForm"></form><div class="replies" data-bind="replies"></div></div>`;
+const formTemplate = '<input type="text" name="name" placeholder="Name"/><input type="email" name="email" placeholder="Email"/><input type="string" name="website" placeholder="Website"/><br/><textarea name="content" placeholder="Comment"></textarea><br/><button type="submit">Submit</button>';
+const commentTemplate = `<div class="comment" data-bind="comment"><div class="comment-header"><span class="author" data-bind="author"></span><time data-bind="created"></time></div><div class="comment-body" data-bind="content"></div><div class="comment-actions"><a href="#" data-bind="replyLink">Reply</a></div><form data-bind="replyForm"></form><div class="replies" data-bind="replies"></div></div>`;
 
 function applyTemplate<T extends {}>(target: Element, template: string): T {
     const bindings: any = {};
@@ -21,6 +21,7 @@ interface FormTemplate {
 }
 
 interface CommentTemplate {
+    comment: HTMLElement;
     author: HTMLElement;
     created: HTMLTimeElement;
     content: HTMLElement;
@@ -38,13 +39,17 @@ interface Config {
 interface Comment {
     id: number;
     name: string;
+    website: string;
     html: string;
     created: string;
+    created_timestamp: number;
     replies: Comment[];
 }
 
 interface NewComment {
     name: string;
+    email: string;
+    website: string;
     content: string;
 }
 
@@ -69,8 +74,26 @@ async function postComment(config: Config, data: NewComment, parentId?: number):
 function addCommentToContainer(config: Config, container: Element, comment: Comment) {
     const temp = document.createElement('div');
     const template = applyTemplate<CommentTemplate>(temp, commentTemplate);
-    template.author.textContent = comment.name;
-    template.created.textContent = comment.created;
+    template.comment.id = `comment-${comment.id}`;
+    if (!comment.name) {
+        comment.name = 'Anonymous';
+    }
+    if (comment.website) {
+        const link = document.createElement('a');
+        link.textContent = comment.name;
+        link.href = comment.website;
+        link.rel = 'noopener noreferrer'; 
+        template.author.appendChild(link);
+    } else {
+        template.author.textContent = comment.name;
+    }
+    const permalink = document.createElement('a');
+    const created = new Date(comment.created_timestamp * 1000);
+    permalink.textContent = created.toLocaleString();
+    permalink.href = `#${template.comment.id}`;
+    template.created.appendChild(permalink);
+    template.created.title = created.toLocaleString();
+    template.created.dateTime = created.toISOString();
     template.content.innerHTML = comment.html;
     let replyFormOpen = false;
     template.replyLink.addEventListener('click', e => {
@@ -87,6 +110,8 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
         e.preventDefault();
         const reply = await postComment(config, {
             name: (template.replyForm.name as any).value,
+            email: template.replyForm.email.value,
+            website: template.replyForm.website.value,
             content: template.replyForm.content.value,
         }, comment.id);
         addCommentToContainer(config, template.replies, reply);
@@ -119,6 +144,8 @@ function load(config: Config) {
         e.preventDefault();
         const comment = await postComment(config, {
             name: (main.newCommentForm.name as any).value,
+            email: main.newCommentForm.email.value,
+            website: main.newCommentForm.website.value,
             content: main.newCommentForm.content.value,
         });
         addCommentToContainer(config, main.comments, comment);
