@@ -1,5 +1,8 @@
+use std::env;
+
 use actix_web::{App, HttpResponse, HttpServer, ResponseError, error::{self}, get, post, web};
 use db::{NewComment, Repo, RepoError, SqlitePool};
+use dotenv::dotenv;
 use log::{debug, info};
 use pulldown_cmark::Parser;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -80,6 +83,7 @@ async fn post_comment(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    dotenv().ok();
     env_logger::init();
 
     info!("Starting uncomment server...");

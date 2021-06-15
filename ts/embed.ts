@@ -1,4 +1,4 @@
-import {language} from './languages/en';
+import {language} from './languages/default';
 
 const mainTemplate = '<form data-bind="newCommentForm"></form><div class="comments" data-bind="comments"></div>';
 const formTemplate = `<input type="text" name="name" placeholder="${language.name}"/><input type="email" name="email" placeholder="${language.email}"/><input type="string" name="website" placeholder="${language.website}"/><br/><textarea name="content" placeholder="${language.comment}"></textarea><br/><button type="submit">${language.submit}</button>`;

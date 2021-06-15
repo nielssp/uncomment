@@ -5,7 +5,8 @@ authors = ["Niels Sonnich Poulsen <niels@nielssp.dk>"]
 edition = "2018"
 
 [dependencies]
-# Logging and error handling
+# Logging, config, and error handling
+dotenv = "0.15"
 log = "0.4"
 env_logger = "0.8"
 thiserror = "1.0"
