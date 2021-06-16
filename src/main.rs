@@ -28,14 +28,14 @@ pub struct NewCommentData {
 impl ResponseError for RepoError {
 }
 
-#[get("/")]
+#[get("/comments")]
 async fn get_comments(request: web::Query<CommentRequest>, repo: web::Data<Repo>) -> actix_web::Result<HttpResponse> {
     debug!("comments requested for {}", request.t);
     let comments = repo.get_comments(request.t.clone())?;
     Ok(HttpResponse::Ok().json(comments))
 }
 
-#[post("/")]
+#[post("/comments")]
 async fn post_comment(
     request: web::Query<CommentRequest>,
     data: web::Json<NewCommentData>,
@@ -44,12 +44,15 @@ async fn post_comment(
     let thread = match repo.get_thread(request.t.clone())? {
         Some(t) => Ok(t),
         None => {
-            // TODO: setting to disable automatic creation of threads
-            // TODO: setting to validate thread name by making a GET request to the site
-            repo.create_thread(request.t.clone()).map(|t| {
-                info!("Created new thread: '{}' (id: {})", t.name, t.id);
-                t
-            })
+            if env::var("UNCOMMENT_AUTO_THREADS").unwrap_or_else(|_| "true".to_owned()) == "true" {
+                // TODO: setting to validate thread name by making a GET request to the site
+                Ok(repo.create_thread(request.t.clone()).map(|t| {
+                    info!("Created new thread: '{}' (id: {})", t.name, t.id);
+                    t
+                })?)
+            } else {
+                Err(error::ErrorNotFound("thread not found"))
+            }
         },
     }?;
     let parent = match request.parent_id {
@@ -101,7 +104,7 @@ async fn main() -> std::io::Result<()> {
             .data(repo.clone())
             .service(get_comments)
             .service(post_comment)
-            .service(actix_files::Files::new("/", "dist"))
+            .service(actix_files::Files::new("/", "dist").index_file("index.html"))
     })
     .bind("127.0.0.1:5000")?
     .run()

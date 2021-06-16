@@ -1,5 +1,6 @@
 const webpack = require('webpack');
 const path = require('path');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 const languages = ['en', 'da'];
 
@@ -30,4 +31,33 @@ module.exports = languages.map(language => {
             ),
         ],
     };
-});
+}).concat([
+    {
+        entry: {
+            dashboard: './ts/dashboard.ts',
+        },
+        module: {
+            rules: [
+                {
+                    test: /\.ts$/,
+                    use: 'ts-loader',
+                    exclude: /node_modules/,
+                },
+                {
+                    test: /\.(sa|sc|c)ss$/,
+                    use: [
+                        MiniCssExtractPlugin.loader,
+                        'css-loader',
+                        'sass-loader',
+                    ],
+                },
+            ],
+        },
+        resolve: {
+            extensions: ['.ts']
+        },
+        plugins: [
+            new MiniCssExtractPlugin(),
+        ],
+    }
+]);

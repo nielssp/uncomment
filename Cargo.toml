@@ -29,3 +29,6 @@ ammonia = "3"
 r2d2 = "0.8"
 r2d2_sqlite = "0.18"
 rusqlite = "0.25"
+
+# Auth
+argonautica = "0.2"

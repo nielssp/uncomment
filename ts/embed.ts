@@ -57,7 +57,7 @@ interface NewComment {
 }
 
 async function postComment(config: Config, data: NewComment, parentId?: number): Promise<Comment> {
-    let url = `${config.api}?t=${config.id}`;
+    let url = `${config.api}/comments?t=${config.id}`;
     if (parentId != undefined) {
         url += `&parent_id=${parentId}`;
     }
@@ -151,7 +151,7 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
 }
 
 async function loadComments(config: Config, container: Element) {
-    const response = await fetch(`${config.api}?t=${config.id}`);
+    const response = await fetch(`${config.api}/comments?t=${config.id}`);
     if (!response.ok) {
         // TODO: error message
         return;

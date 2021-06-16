@@ -227,8 +227,8 @@ impl Repo {
                 let parent_id = parent.as_ref().map(|p| p.id);
                 let hierarchy = parent.as_ref().map(|p| format!("{}/{}", p.hierarchy, p.id));
                 let mut insert = conn.prepare(
-                    "insert into comments (thread_id, parent_id, hierarchy, name, email, website, html, markdown, created) \
-                    values (:thread_id, :parent_id, :hierarchy, :name, :email, :website, :html, :markdown, :created)")?;
+                    "insert into comments (thread_id, parent_id, hierarchy, name, email, website, html, markdown, status, created) \
+                    values (:thread_id, :parent_id, :hierarchy, :name, :email, :website, :html, :markdown, 'approved', :created)")?;
                 let id = insert.insert(named_params! {
                     ":thread_id": thread_id,
                     ":parent_id": parent_id,
