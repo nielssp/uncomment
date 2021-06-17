@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Uncomment Dashboard</title>
+    <meta name=viewport content="width=device-width, initial-scale=1"/>
+    <link rel="stylesheet" type="text/css" href="dashboard.css"/>
+  </head>
+  <body>
+    <div class="root">
+      <aside>
+        <h1>Uncomment</h1>
+        <ul role="menu">
+          <li>Comments</li>
+          <li>Threads</li>
+          <li>Users</li>
+          <li>Settings</li>
+          <li>Log Out</li>
+        </ul>
+      </aside>
+      <main>
+        <div class="box small padding">
+          <div class="info warning">
+            Wrong username or password
+          </div>
+          <div class="field">
+            <label>Username</label>
+            <input type="text" />
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" />
+          </div>
+          <button type="submit">Log In</button>
+        </div>
+        <div class="box margin-top">
+          <div class="box-header">
+            <div class="box-title">
+              Comments
+            </div>
+            <button>
+              Filter
+            </button>
+          </div>
+          <div class="box-row">
+            Comment 1
+          </div>
+          <div class="box-row">
+            Comment 2
+          </div>
+        </div>
+        <div class="margin-top flex-row spacing center">
+          <div>
+            <strong>1</strong>&ndash;<strong>50</strong>
+            of <strong>215</strong>
+          </div>
+          <button disabled>←</button>
+          <button>→</button>
+        </div>
+      </main>
+    </div>
+    <script type="text/javascript" src="dashboard.js"></script>
+  </body>
+</html>

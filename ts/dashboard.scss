@@ -22,6 +22,7 @@ body {
 
     & > aside {
       flex: 0 0 12rem;
+      margin-right: 2rem;
       h1 {
           font-size: inherit;
           font-weight: normal;
@@ -38,16 +39,115 @@ body {
       flex-grow: 1;
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
+    }
+
+    @media screen and (max-width: 40rem) {
+        flex-direction: column;
     }
 }
 
 .box {
     background-color: #fff;
-    padding: 1rem;
     border-radius: 0.3rem;
     border: 0.05rem solid #919B9C;
     box-shadow: 0.2rem 0.2rem 0.4rem rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+
+    &.small {
+        max-width: 22rem;
+    }
+
+    &.medium {
+        max-width: 44rem;
+    }
+}
+
+.box-header {
+    display: flex;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 1rem;
+    background-color: #F9F9F4;
+    border-bottom: 0.05rem solid #E9EAEB;
+
+    .box-title {
+        font-weight: bold;
+        flex-grow: 1;
+    }
+}
+
+.box-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 1rem;
+
+    & + .box-row {
+        border-top: 0.05rem solid #E9EAEB;
+    }
+}
+
+.padding {
+    padding: 1rem;
+
+    &-top {
+        padding-top: 1rem;
+    }
+
+    &-right {
+        padding-right: 1rem;
+    }
+
+    &-bottom {
+        padding-bottom: 1rem;
+    }
+
+    &-left {
+        padding-left: 1rem;
+    }
+}
+
+.margin {
+    margin: 1rem;
+
+    &-top {
+        margin-top: 1rem;
+    }
+
+    &-right {
+        margin-right: 1rem;
+    }
+
+    &-bottom {
+        margin-bottom: 1rem;
+    }
+
+    &-left {
+        margin-left: 1rem;
+    }
+}
+
+.flex-row {
+    display: flex;
+    flex-direction: row;
+
+    &.spacing > * + * {
+        margin-left: 1rem;
+    }
+
+    &.center {
+        align-items: center;
+    }
+}
+
+.flex-column {
+    display: flex;
+    flex-direction: column;
+
+    &.spacing > * + * {
+        margin-top: 1rem;
+    }
 }
 
 button, input {
@@ -65,10 +165,17 @@ textarea {
     border: 0.05rem solid #7F9DB9;
     padding: 0.4rem;
     border-radius: 0.1rem;
+    width: 100%;
 
     &:focus {
         outline: none;
         box-shadow: 0 0 0 0.1rem rgba(111, 152, 207, 0.7);
+    }
+
+    &:disabled {
+        background: #F5F4EA;
+        color: #C9C7BA;
+        border-color: #C9C7BA;
     }
 }
 
@@ -102,5 +209,33 @@ button {
     &:active {
         background: #E2E1D9;
         box-shadow: inset 0.1rem 0.1rem 0.2rem rgba(0, 0, 0, 0.1);
+    }
+
+    &:disabled {
+        background: #F5F4EA;
+        color: #C9C7BA;
+        border-color: #C9C7BA;
+        box-shadow: none;
+    }
+}
+
+.info {
+    background-color: #CDDDF3;
+    border: 0.05rem solid #6F98CF;
+    box-shadow: inset 0.2rem 0 0 #6F98CF;
+    border-radius: 0.2rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 1rem;
+
+    &.success {
+        background-color: #D0F4CD;
+        border: 0.05rem solid #2FA724;
+        box-shadow: inset 0.2rem 0 0 #2FA724;
+    }
+
+    &.warning {
+        background-color: #F3E0CC;
+        border: 0.05rem solid #A86623;
+        box-shadow: inset 0.2rem 0 0 #A86623;
     }
 }
