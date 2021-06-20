@@ -11,6 +11,7 @@ pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])]
          id integer primary key autoincrement,
          thread_id integer not null,
          parent_id integer null,
+         user_id integer null,
          hierarchy text(100) not null,
          name text(100) not null,
          email text(100) not null,

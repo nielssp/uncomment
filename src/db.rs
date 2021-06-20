@@ -42,6 +42,17 @@ pub struct NewComment {
     pub markdown: String,
 }
 
+pub struct User {
+    pub id: i64,
+    pub username: String,
+    pub password: String,
+}
+
+pub struct Session {
+    pub id: String,
+    pub valid_until: Local,
+}
+
 #[derive(Serialize)]
 pub struct Page<T> {
     pub content: Vec<T>,
@@ -225,14 +236,12 @@ impl Repo {
                 let now = Local::now();
                 let conn = pool.get()?;
                 let parent_id = parent.as_ref().map(|p| p.id);
-                let hierarchy = parent.as_ref().map(|p| format!("{}/{}", p.hierarchy, p.id));
                 let mut insert = conn.prepare(
                     "insert into comments (thread_id, parent_id, hierarchy, name, email, website, html, markdown, status, created) \
-                    values (:thread_id, :parent_id, :hierarchy, :name, :email, :website, :html, :markdown, 'approved', :created)")?;
+                    values (:thread_id, :parent_id, '', :name, :email, :website, :html, :markdown, 'approved', :created)")?;
                 let id = insert.insert(named_params! {
                     ":thread_id": thread_id,
                     ":parent_id": parent_id,
-                    ":hierarchy": hierarchy.unwrap_or("".to_owned()),
                     ":name": data.name.clone(),
                     ":email": data.email.clone(),
                     ":website": data.website.clone(),
@@ -240,12 +249,11 @@ impl Repo {
                     ":markdown": data.markdown.clone(),
                     ":created": now.to_rfc3339(),
                 })?;
-                if parent.is_none() {
-                    conn.execute("update comments set hierarchy = ? where id = ?", params![
-                        format!("/{}", id),
-                        id
-                    ])?;
-                }
+                let hierarchy = format!(
+                    "{}/{}",
+                    parent.as_ref().map(|p| p.hierarchy.clone()).unwrap_or("".to_owned()),
+                    id);
+                conn.execute("update comments set hierarchy = ? where id = ?", params![hierarchy, id])?;
                 Ok(Comment {
                     id,
                     parent_id,

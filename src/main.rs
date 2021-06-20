@@ -10,6 +10,7 @@ use serde::Deserialize;
 
 mod db;
 mod migrations;
+mod auth;
 
 #[derive(Deserialize)]
 struct CommentRequest {
@@ -104,6 +105,7 @@ async fn main() -> std::io::Result<()> {
             .data(repo.clone())
             .service(get_comments)
             .service(post_comment)
+            .configure(auth::config)
             .service(actix_files::Files::new("/", "dist").index_file("index.html"))
     })
     .bind("127.0.0.1:5000")?

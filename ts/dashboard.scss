@@ -48,9 +48,9 @@ body {
 
 .box {
     background-color: #fff;
-    border-radius: 0.3rem;
-    border: 0.05rem solid #919B9C;
-    box-shadow: 0.2rem 0.2rem 0.4rem rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    border: 1px solid #919B9C;
+    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.1);
     overflow: hidden;
 
     &.small {
@@ -69,11 +69,15 @@ body {
     align-items: center;
     padding: 1rem;
     background-color: #F9F9F4;
-    border-bottom: 0.05rem solid #E9EAEB;
+    border-bottom: 1px solid #E9EAEB;
 
     .box-title {
         font-weight: bold;
         flex-grow: 1;
+    }
+
+    & > button {
+        margin: -0.5rem 0;
     }
 }
 
@@ -84,7 +88,7 @@ body {
     padding: 1rem;
 
     & + .box-row {
-        border-top: 0.05rem solid #E9EAEB;
+        border-top: 1px solid #E9EAEB;
     }
 }
 
@@ -162,14 +166,14 @@ textarea {
     display: block;
     background: #fff;
     color: #000;
-    border: 0.05rem solid #7F9DB9;
+    border: 1px solid #7F9DB9;
     padding: 0.4rem;
-    border-radius: 0.1rem;
+    border-radius: 2px;
     width: 100%;
 
     &:focus {
         outline: none;
-        box-shadow: 0 0 0 0.1rem rgba(111, 152, 207, 0.7);
+        box-shadow: 0 0 0 2px rgba(111, 152, 207, 0.7);
     }
 
     &:disabled {
@@ -191,26 +195,26 @@ textarea {
 
 button,
 .button {
-    border: 0.05rem solid #003C74;
+    border: 1px solid #003C74;
     padding: 0.4rem 1rem;
     background: linear-gradient(180deg, #ffffff 0%, #F0F0EA 100%);
     color: #000;
-    border-radius: 0.2rem;
-    box-shadow: inset -0.1rem -0.1rem 0.2rem rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    box-shadow: inset -2px -2px 4px rgba(0, 0, 0, 0.1);
 
     &:focus {
         outline: none;
-        box-shadow: inset 0 0 0 0.1rem rgba(111, 152, 207, 0.7);
+        box-shadow: inset 0 0 0 2px rgba(111, 152, 207, 0.7);
     }
 
     &:hover {
-        box-shadow: inset 0 0 0 0.1rem rgba(238, 200, 128, 0.9);
+        box-shadow: inset 0 0 0 2px rgba(238, 200, 128, 0.9);
     }
 
     &:active,
     &.active {
         background: #E2E1D9;
-        box-shadow: inset 0.1rem 0.1rem 0.2rem rgba(0, 0, 0, 0.1);
+        box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     &:disabled {
@@ -227,13 +231,13 @@ button,
         border-radius: 0;
 
         &:first-child {
-            border-top-left-radius: 0.2rem;
-            border-bottom-left-radius: 0.2rem;
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
         }
 
         &:last-child {
-            border-top-right-radius: 0.2rem;
-            border-bottom-right-radius: 0.2rem;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
         }
 
         &:not(:last-child):not(:focus) {
@@ -252,21 +256,21 @@ button,
 
 .info {
     background-color: #CDDDF3;
-    border: 0.05rem solid #6F98CF;
-    box-shadow: inset 0.2rem 0 0 #6F98CF;
-    border-radius: 0.2rem;
+    border: 1px solid #6F98CF;
+    box-shadow: inset 4px 0 0 #6F98CF;
+    border-radius: 4px;
     margin-bottom: 1rem;
     padding: 0.5rem 1rem;
 
     &.success {
         background-color: #D0F4CD;
-        border: 0.05rem solid #2FA724;
+        border: 1px solid #2FA724;
         box-shadow: inset 0.2rem 0 0 #2FA724;
     }
 
     &.warning {
         background-color: #F3E0CC;
-        border: 0.05rem solid #A86623;
+        border: 1px solid #A86623;
         box-shadow: inset 0.2rem 0 0 #A86623;
     }
 }
