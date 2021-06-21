@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use chrono::{DateTime, Local};
-use log::{debug, info};
+use chrono::{DateTime, FixedOffset, Local};
+use log::info;
 use rusqlite::{OptionalExtension, named_params, params};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use thiserror::Error;
 
 use crate::migrations::SQLITE_MIGRATIONS;
@@ -46,11 +46,27 @@ pub struct User {
     pub id: i64,
     pub username: String,
     pub password: String,
+    pub name: String,
+    pub email: String,
+    pub website: String,
+    pub trusted: bool,
+    pub admin: bool,
 }
 
 pub struct Session {
     pub id: String,
-    pub valid_until: Local,
+    pub valid_until: DateTime<FixedOffset>,
+    pub user: User,
+}
+
+pub struct NewUser {
+    pub username: String,
+    pub password: String,
+    pub name: String,
+    pub email: String,
+    pub website: String,
+    pub trusted: bool,
+    pub admin: bool,
 }
 
 #[derive(Serialize)]
@@ -128,7 +144,7 @@ impl Repo {
         }
     }
 
-    pub fn get_comments(&self, thread_name: String) -> Result<Vec<Comment>, RepoError> {
+    pub fn get_comments(&self, thread_name: &str) -> Result<Vec<Comment>, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
@@ -192,7 +208,7 @@ impl Repo {
         }
     }
 
-    pub fn get_thread(&self, thread_name: String) -> Result<Option<Thread>, RepoError> {
+    pub fn get_thread(&self, thread_name: &str) -> Result<Option<Thread>, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
@@ -207,7 +223,7 @@ impl Repo {
         }
     }
 
-    pub fn create_thread(&self, thread_name: String) -> Result<Thread, RepoError> {
+    pub fn create_thread(&self, thread_name: &str) -> Result<Thread, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
@@ -218,7 +234,7 @@ impl Repo {
                 })?;
                 Ok(Thread {
                     id,
-                    name: thread_name,
+                    name: thread_name.to_owned(),
                     title: None,
                 })
             }
@@ -265,6 +281,130 @@ impl Repo {
                     replies: vec![],
                 })
             }
+        }
+    }
+
+    pub fn get_session(&self, session_id: &str) -> Result<Option<Session>, RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                let mut select = conn.prepare(
+                    "select s.id, s.valid_until, u.id, u.username, u.password, u.name, u.email, \
+                    u.website, u.trusted, u.admin from sessions s inner join users u on u.id = s.user_id \
+                    where s.id = ?")?;
+                let mut rows = select.query([session_id])?;
+                if let Some(row) = rows.next()? {
+                    let valid_until: String = row.get(1)?;
+                    Ok(Some(Session {
+                        id: row.get(0)?,
+                        valid_until: DateTime::parse_from_rfc3339(valid_until.as_str())?,
+                        user: User {
+                            id: row.get(2)?,
+                            username: row.get(3)?,
+                            password: row.get(4)?,
+                            name: row.get(5)?,
+                            email: row.get(6)?,
+                            website: row.get(7)?,
+                            trusted: row.get(8)?,
+                            admin: row.get(9)?,
+                        },
+                    }))
+                } else {
+                    Ok(None)
+                }
+            },
+        }
+    }
+
+    pub fn get_user(&self, username: &str) -> Result<Option<User>, RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                let mut select = conn.prepare(
+                    "select u.id, u.username, u.password, u.name, u.email, \
+                    u.website, u.trusted, u.admin from users u \
+                    where u.username = ?")?;
+                let mut rows = select.query([username])?;
+                if let Some(row) = rows.next()? {
+                    Ok(Some(User {
+                        id: row.get(0)?,
+                        username: row.get(1)?,
+                        password: row.get(2)?,
+                        name: row.get(3)?,
+                        email: row.get(4)?,
+                        website: row.get(5)?,
+                        trusted: row.get(6)?,
+                        admin: row.get(7)?,
+                    }))
+                } else {
+                    Ok(None)
+                }
+            },
+        }
+    }
+
+    pub fn admin_exists(&self) -> Result<bool, RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                Ok(conn.query_row("select 1 from users where admin = 1", [], |_| Ok(true))
+                    .optional().map(|o| o.is_some())?)
+            },
+        }
+    }
+
+    pub fn create_user(&self, new_user: NewUser) -> Result<User, RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                let mut insert = conn.prepare(
+                    "insert into users (username, password, name, email, website, trusted, admin) \
+                    values (:username, :password, :name, :email, :website, :trusted, :admin)")?;
+                let id = insert.insert(named_params! {
+                    ":username": new_user.username,
+                    ":password": new_user.password,
+                    ":name": new_user.name,
+                    ":email": new_user.email,
+                    ":website": new_user.website,
+                    ":trusted": new_user.trusted,
+                    ":admin": new_user.admin,
+                })?;
+                Ok(User {
+                    id,
+                    username: new_user.username,
+                    password: new_user.password,
+                    name: new_user.name,
+                    email: new_user.email,
+                    website: new_user.website,
+                    trusted: new_user.trusted,
+                    admin: new_user.admin,
+                })
+            },
+        }
+    }
+
+    pub fn create_session(&self, session_id: &str, valid_until: DateTime<Local>, user_id: i64) -> Result<(), RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                conn.execute("insert into sessions (id, valid_until, user_id) VALUES (:id, :valid_until, :user_id)",
+                    named_params! {
+                        ":id": session_id,
+                        ":valid_until": valid_until.to_rfc3339(),
+                        ":user_id": user_id,
+                    })?;
+                Ok(())
+            },
+        }
+    }
+
+    pub fn delete_session(&self, session_id: &str) -> Result<(), RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                conn.execute("delete from sessions where id = ?", [session_id])?;
+                Ok(())
+            },
         }
     }
 }

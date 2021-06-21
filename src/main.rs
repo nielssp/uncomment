@@ -32,7 +32,7 @@ impl ResponseError for RepoError {
 #[get("/comments")]
 async fn get_comments(request: web::Query<CommentRequest>, repo: web::Data<Repo>) -> actix_web::Result<HttpResponse> {
     debug!("comments requested for {}", request.t);
-    let comments = repo.get_comments(request.t.clone())?;
+    let comments = repo.get_comments(&request.t)?;
     Ok(HttpResponse::Ok().json(comments))
 }
 
@@ -42,12 +42,12 @@ async fn post_comment(
     data: web::Json<NewCommentData>,
     repo: web::Data<Repo>
 ) -> actix_web::Result<HttpResponse> {
-    let thread = match repo.get_thread(request.t.clone())? {
+    let thread = match repo.get_thread(&request.t)? {
         Some(t) => Ok(t),
         None => {
             if env::var("UNCOMMENT_AUTO_THREADS").unwrap_or_else(|_| "true".to_owned()) == "true" {
                 // TODO: setting to validate thread name by making a GET request to the site
-                Ok(repo.create_thread(request.t.clone()).map(|t| {
+                Ok(repo.create_thread(&request.t).map(|t| {
                     info!("Created new thread: '{}' (id: {})", t.name, t.id);
                     t
                 })?)
@@ -97,6 +97,7 @@ async fn main() -> std::io::Result<()> {
     let repo: Repo = Repo::SqliteRepo(pool);
 
     repo.install().unwrap();
+    auth::install(&repo).unwrap();
 
     HttpServer::new(move || {
         let cors = actix_cors::Cors::permissive();

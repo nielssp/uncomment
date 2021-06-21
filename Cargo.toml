@@ -12,7 +12,7 @@ env_logger = "0.8"
 thiserror = "1.0"
 
 # Dates
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 
 # Web service
 actix-web = "3"
@@ -32,3 +32,5 @@ rusqlite = "0.25"
 
 # Auth
 argonautica = "0.2"
+rand = "0.8"
+base64 = "0.13"
