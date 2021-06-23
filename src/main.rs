@@ -17,6 +17,7 @@ mod admin;
 struct CommentRequest {
     t: String,
     parent_id: Option<i64>,
+    newest_first: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -31,9 +32,12 @@ impl ResponseError for RepoError {
 }
 
 #[get("/comments")]
-async fn get_comments(request: web::Query<CommentRequest>, repo: web::Data<Repo>) -> actix_web::Result<HttpResponse> {
+async fn get_comments(
+    request: web::Query<CommentRequest>,
+    repo: web::Data<Repo>,
+) -> actix_web::Result<HttpResponse> {
     debug!("comments requested for {}", request.t);
-    let comments = repo.get_comments(&request.t)?;
+    let comments = repo.get_comments(&request.t, request.newest_first.unwrap_or(false))?;
     Ok(HttpResponse::Ok().json(comments))
 }
 

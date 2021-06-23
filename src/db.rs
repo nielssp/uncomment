@@ -161,22 +161,37 @@ impl Repo {
         }
     }
 
-    pub fn get_comments(&self, thread_name: &str) -> Result<Vec<Comment>, RepoError> {
+    fn get_comment_order(newest_first: bool) -> &'static str {
+        if newest_first {
+            "c.level1_id desc nulls first, \
+            c.level2_id desc nulls first, \
+            c.level3_id desc nulls first, \
+            c.level4_id desc nulls first, \
+            c.level5_id desc nulls first, \
+            c.level6_id desc nulls first, \
+            c.id desc"
+        } else {
+            "c.level1_id asc nulls first, \
+            c.level2_id asc nulls first, \
+            c.level3_id asc nulls first, \
+            c.level4_id asc nulls first, \
+            c.level5_id asc nulls first, \
+            c.level6_id asc nulls first, \
+            c.id asc"
+        }
+    }
+
+    pub fn get_comments(&self, thread_name: &str, newest_first: bool) -> Result<Vec<Comment>, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
                 let mut stmt = conn.prepare(
-                    "select c.id, c.parent_id, c.name, c.website, c.html, c.created \
+                    &format!("select c.id, c.parent_id, c.name, c.website, c.html, c.created \
                     from comments c \
                     inner join threads t on t.id = c.thread_id \
                     where t.name = ? \
                     and c.status = 'Approved'
-                    order by c.level1_id asc nulls first, \
-                    c.level2_id asc nulls first, \
-                    c.level3_id asc nulls first, \
-                    c.level4_id asc nulls first, \
-                    c.level5_id asc nulls first, \
-                    c.level6_id asc nulls first")?;
+                    order by {}", Self::get_comment_order(newest_first)))?;
                 let mut rows = stmt.query([thread_name])?;
                 let mut root = Vec::new();
                 let mut replies: HashMap<i64, Vec<Comment>> = HashMap::new();

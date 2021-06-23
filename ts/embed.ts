@@ -37,6 +37,7 @@ interface Config {
     api: string;
     id: string;
     relativeDates: boolean;
+    newestFirst: boolean;
 }
 
 interface Comment {
@@ -151,7 +152,7 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
 }
 
 async function loadComments(config: Config, container: Element) {
-    const response = await fetch(`${config.api}/comments?t=${config.id}`);
+    const response = await fetch(`${config.api}/comments?t=${config.id}&newest_first=${config.newestFirst}`);
     if (!response.ok) {
         // TODO: error message
         return;
@@ -202,6 +203,7 @@ function initFromScriptTag() {
         api,
         id: script.getAttribute('data-uncomment-id') || location.pathname,
         relativeDates: script.getAttribute('data-uncomment-relative-dates') !== 'false',
+        newestFirst: script.getAttribute('data-uncomment-newest-first') === 'true',
     };
     load(config);
 }
