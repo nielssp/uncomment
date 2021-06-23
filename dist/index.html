@@ -33,13 +33,29 @@
           </div>
           <button type="submit">Log In</button>
         </div>
+        <div class="margin-top">
+          <div class="button-group">
+            <label class="button active">
+              <input type="radio" name="commentFilter" checked/>
+              Pending
+            </label>
+            <label class="button">
+              <input type="radio" name="commentFilter"/>
+              Approved
+            </label>
+            <label class="button">
+              <input type="radio" name="commentFilter"/>
+              Rejected
+            </label>
+          </div>
+        </div>
         <div class="box margin-top">
           <div class="box-header">
             <div class="box-title">
               Comments
             </div>
             <button>
-              Filter
+              Date ↑
             </button>
           </div>
           <div class="box-row">
@@ -54,8 +70,11 @@
             <strong>1</strong>&ndash;<strong>50</strong>
             of <strong>215</strong>
           </div>
-          <button disabled>←</button>
-          <button>→</button>
+          <div class="button-group">
+            <button>←</button>
+            <button>←</button>
+            <button>→</button>
+          </div>
         </div>
       </main>
     </div>

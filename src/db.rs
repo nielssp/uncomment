@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, fmt};
 
 use chrono::{DateTime, FixedOffset, Local};
 use log::info;
@@ -13,6 +13,19 @@ pub struct Thread {
     pub id: i64,
     pub name: String,
     pub title: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum CommentStatus {
+    Pending,
+    Approved,
+    Rejected,
+}
+
+impl fmt::Display for CommentStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -30,8 +43,12 @@ pub struct Comment {
 pub struct CommentPosition {
     pub id: i64,
     pub thread_id: i64,
-    pub parent_id: Option<i64>,
-    pub hierarchy: String,
+    pub level1_id: Option<i64>,
+    pub level2_id: Option<i64>,
+    pub level3_id: Option<i64>,
+    pub level4_id: Option<i64>,
+    pub level5_id: Option<i64>,
+    pub level6_id: Option<i64>,
 }
 
 pub struct NewComment {
@@ -151,9 +168,15 @@ impl Repo {
                 let mut stmt = conn.prepare(
                     "select c.id, c.parent_id, c.name, c.website, c.html, c.created \
                     from comments c \
-                    inner join threads t on t.id = c.thread_id
-                    where t.name = ?
-                    order by c.hierarchy asc")?;
+                    inner join threads t on t.id = c.thread_id \
+                    where t.name = ? \
+                    and c.status = 'Approved'
+                    order by c.level1_id asc nulls first, \
+                    c.level2_id asc nulls first, \
+                    c.level3_id asc nulls first, \
+                    c.level4_id asc nulls first, \
+                    c.level5_id asc nulls first, \
+                    c.level6_id asc nulls first")?;
                 let mut rows = stmt.query([thread_name])?;
                 let mut root = Vec::new();
                 let mut replies: HashMap<i64, Vec<Comment>> = HashMap::new();
@@ -196,12 +219,19 @@ impl Repo {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
-                conn.query_row("select id, thread_id, parent_id, hierarchy from comments where id = ?", [id], |row| {
+                conn.query_row("select c.id, c.thread_id, c.level1_id, c.level2_id, c.level3_id, c.level4_id, \
+                    c.level5_id, c.level6_id \
+                    from comments c \
+                    where c.id = ?", [id], |row| {
                     Ok(CommentPosition {
                         id: row.get(0)?,
                         thread_id: row.get(1)?,
-                        parent_id: row.get(2)?,
-                        hierarchy: row.get(3)?,
+                        level1_id: row.get(2)?,
+                        level2_id: row.get(3)?,
+                        level3_id: row.get(4)?,
+                        level4_id: row.get(5)?,
+                        level5_id: row.get(6)?,
+                        level6_id: row.get(7)?,
                     })
                 }).optional().map_err(|e| e.into())
             },
@@ -244,32 +274,42 @@ impl Repo {
     pub fn post_comment(
         &self,
         thread_id: i64,
-        parent: Option<CommentPosition>,
+        parent: Option<&CommentPosition>,
         data: NewComment
     ) -> Result<Comment, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let now = Local::now();
                 let conn = pool.get()?;
-                let parent_id = parent.as_ref().map(|p| p.id);
+                let parent_id = parent.map(|p| p.level6_id.unwrap_or(p.id));
                 let mut insert = conn.prepare(
-                    "insert into comments (thread_id, parent_id, hierarchy, name, email, website, html, markdown, status, created) \
-                    values (:thread_id, :parent_id, '', :name, :email, :website, :html, :markdown, 'approved', :created)")?;
+                    "insert into comments (thread_id, parent_id, name, email, website, html, markdown, status, created) \
+                    values (:thread_id, :parent_id, :name, :email, :website, :html, :markdown, :status, :created)")?;
                 let id = insert.insert(named_params! {
                     ":thread_id": thread_id,
                     ":parent_id": parent_id,
-                    ":name": data.name.clone(),
-                    ":email": data.email.clone(),
-                    ":website": data.website.clone(),
-                    ":html": data.html.clone(),
-                    ":markdown": data.markdown.clone(),
+                    ":name": data.name,
+                    ":email": &data.email,
+                    ":website": &data.website,
+                    ":html": &data.html,
+                    ":markdown": &data.markdown,
+                    ":status": CommentStatus::Approved.to_string(),
                     ":created": now.to_rfc3339(),
                 })?;
-                let hierarchy = format!(
-                    "{}/{}",
-                    parent.as_ref().map(|p| p.hierarchy.clone()).unwrap_or("".to_owned()),
-                    id);
-                conn.execute("update comments set hierarchy = ? where id = ?", params![hierarchy, id])?;
+                let level1 = parent.map(|p| p.level1_id).flatten().unwrap_or(id);
+                let level2 = parent.map(|p| p.level2_id
+                    .or_else(|| if p.level1_id.is_some() { Some(id) } else { None })).flatten();
+                let level3 = parent.map(|p| p.level3_id
+                    .or_else(|| if p.level2_id.is_some() { Some(id) } else { None })).flatten();
+                let level4 = parent.map(|p| p.level4_id
+                    .or_else(|| if p.level3_id.is_some() { Some(id) } else { None })).flatten();
+                let level5 = parent.map(|p| p.level5_id
+                    .or_else(|| if p.level4_id.is_some() { Some(id) } else { None })).flatten();
+                let level6 = parent.map(|p| p.level6_id
+                    .or_else(|| if p.level5_id.is_some() { Some(id) } else { None })).flatten();
+                conn.execute("update comments set level1_id = ?, level2_id = ?, level3_id = ?, \
+                    level4_id = ?, level5_id = ?, level6_id = ? where id = ?",
+                    params![level1, level2, level3, level4, level5, level6, id])?;
                 Ok(Comment {
                     id,
                     parent_id,

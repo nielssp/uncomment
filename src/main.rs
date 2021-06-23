@@ -1,6 +1,6 @@
 use std::env;
 
-use actix_web::{App, HttpResponse, HttpServer, ResponseError, error::{self}, get, post, web};
+use actix_web::{App, HttpResponse, HttpServer, ResponseError, error, get, post, web};
 use db::{NewComment, Repo, RepoError, SqlitePool};
 use dotenv::dotenv;
 use log::{debug, info};
@@ -11,6 +11,7 @@ use serde::Deserialize;
 mod db;
 mod migrations;
 mod auth;
+mod admin;
 
 #[derive(Deserialize)]
 struct CommentRequest {
@@ -75,7 +76,7 @@ async fn post_comment(
     let mut unsafe_html = String::new();
     pulldown_cmark::html::push_html(&mut unsafe_html, parser);
     let safe_html = ammonia::clean(&*unsafe_html);
-    let comment = repo.post_comment(thread.id, parent, NewComment {
+    let comment = repo.post_comment(thread.id, parent.as_ref(), NewComment {
         name: data.name.clone(),
         email: data.email.clone(),
         website: data.website.clone(),
@@ -107,6 +108,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_comments)
             .service(post_comment)
             .configure(auth::config)
+            .configure(admin::config)
             .service(actix_files::Files::new("/", "dist").index_file("index.html"))
     })
     .bind("127.0.0.1:5000")?
