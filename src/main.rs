@@ -14,18 +14,18 @@ mod auth;
 mod admin;
 
 #[derive(Deserialize)]
-struct CommentRequest {
+struct CommentQuery {
     t: String,
     parent_id: Option<i64>,
     newest_first: Option<bool>,
 }
 
 #[derive(Deserialize)]
-pub struct NewCommentData {
-    pub name: String,
-    pub email: String,
-    pub website: String,
-    pub content: String,
+struct NewCommentData {
+    name: String,
+    email: String,
+    website: String,
+    content: String,
 }
 
 impl ResponseError for RepoError {
@@ -33,26 +33,26 @@ impl ResponseError for RepoError {
 
 #[get("/comments")]
 async fn get_comments(
-    request: web::Query<CommentRequest>,
+    query: web::Query<CommentQuery>,
     repo: web::Data<Repo>,
 ) -> actix_web::Result<HttpResponse> {
-    debug!("comments requested for {}", request.t);
-    let comments = repo.get_comments(&request.t, request.newest_first.unwrap_or(false))?;
+    debug!("comments requested for {}", query.t);
+    let comments = repo.get_comment_thread(&query.t, query.newest_first.unwrap_or(false))?;
     Ok(HttpResponse::Ok().json(comments))
 }
 
 #[post("/comments")]
 async fn post_comment(
-    request: web::Query<CommentRequest>,
+    query: web::Query<CommentQuery>,
     data: web::Json<NewCommentData>,
     repo: web::Data<Repo>
 ) -> actix_web::Result<HttpResponse> {
-    let thread = match repo.get_thread(&request.t)? {
+    let thread = match repo.get_thread(&query.t)? {
         Some(t) => Ok(t),
         None => {
             if env::var("UNCOMMENT_AUTO_THREADS").unwrap_or_else(|_| "true".to_owned()) == "true" {
                 // TODO: setting to validate thread name by making a GET request to the site
-                Ok(repo.create_thread(&request.t).map(|t| {
+                Ok(repo.create_thread(&query.t).map(|t| {
                     info!("Created new thread: '{}' (id: {})", t.name, t.id);
                     t
                 })?)
@@ -61,7 +61,7 @@ async fn post_comment(
             }
         },
     }?;
-    let parent = match request.parent_id {
+    let parent = match query.parent_id {
         Some(id) => {
             repo.get_comment_position(id)?
                 .filter(|pos| pos.thread_id == thread.id)

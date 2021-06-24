@@ -2,7 +2,7 @@ use std::{collections::{HashMap, HashSet}, fmt};
 
 use chrono::{DateTime, FixedOffset, Local};
 use log::info;
-use rusqlite::{OptionalExtension, named_params, params};
+use rusqlite::{OptionalExtension, named_params, params, types::{FromSql, FromSqlError, FromSqlResult, ValueRef}};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -15,7 +15,7 @@ pub struct Thread {
     pub title: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Debug)]
 pub enum CommentStatus {
     Pending,
     Approved,
@@ -28,8 +28,19 @@ impl fmt::Display for CommentStatus {
     }
 }
 
+impl FromSql for CommentStatus {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        match value.as_str()? {
+            "Pending" => Ok(CommentStatus::Pending),
+            "Approved" => Ok(CommentStatus::Approved),
+            "Rejected" => Ok(CommentStatus::Rejected),
+            _ => Err(FromSqlError::InvalidType),
+        }
+    }
+}
+
 #[derive(Serialize, Clone)]
-pub struct Comment {
+pub struct PublicComment {
     pub id: i64,
     pub parent_id: Option<i64>,
     pub name: String,
@@ -37,7 +48,7 @@ pub struct Comment {
     pub html: String,
     pub created: String,
     pub created_timestamp: i64,
-    pub replies: Vec<Comment>,
+    pub replies: Vec<PublicComment>,
 }
 
 pub struct CommentPosition {
@@ -49,6 +60,22 @@ pub struct CommentPosition {
     pub level4_id: Option<i64>,
     pub level5_id: Option<i64>,
     pub level6_id: Option<i64>,
+}
+
+#[derive(Serialize)]
+pub struct PrivateComment {
+    pub id: i64,
+    pub thread_id: i64,
+    pub thread_name: String,
+    pub parent_id: Option<i64>,
+    pub status: CommentStatus,
+    pub name: String,
+    pub email: String,
+    pub website: String,
+    pub markdown: String,
+    pub html: String,
+    pub created: String,
+    pub created_timestamp: i64,
 }
 
 pub struct NewComment {
@@ -89,6 +116,7 @@ pub struct NewUser {
 #[derive(Serialize)]
 pub struct Page<T> {
     pub content: Vec<T>,
+    pub remaining: i64,
 }
 
 pub type SqlitePool = r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>;
@@ -147,7 +175,7 @@ impl Repo {
         }
     }
 
-    fn build_comment_tree(comment: &mut Comment, replies: &HashMap<i64, Vec<Comment>>) {
+    fn build_comment_tree(comment: &mut PublicComment, replies: &HashMap<i64, Vec<PublicComment>>) {
         match replies.get(&comment.id) {
             Some(comment_replies) => {
                 for reply in comment_replies {
@@ -181,7 +209,7 @@ impl Repo {
         }
     }
 
-    pub fn get_comments(&self, thread_name: &str, newest_first: bool) -> Result<Vec<Comment>, RepoError> {
+    pub fn get_comment_thread(&self, thread_name: &str, newest_first: bool) -> Result<Vec<PublicComment>, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
@@ -194,11 +222,11 @@ impl Repo {
                     order by {}", Self::get_comment_order(newest_first)))?;
                 let mut rows = stmt.query([thread_name])?;
                 let mut root = Vec::new();
-                let mut replies: HashMap<i64, Vec<Comment>> = HashMap::new();
+                let mut replies: HashMap<i64, Vec<PublicComment>> = HashMap::new();
                 while let Some(row) = rows.next()? {
                     let created_string: String = row.get(5)?;
                     let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
-                    let comment = Comment {
+                    let comment = PublicComment {
                         id: row.get(0)?,
                         parent_id: row.get(1)?,
                         name: row.get(2)?,
@@ -291,7 +319,7 @@ impl Repo {
         thread_id: i64,
         parent: Option<&CommentPosition>,
         data: NewComment
-    ) -> Result<Comment, RepoError> {
+    ) -> Result<PublicComment, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let now = Local::now();
@@ -313,19 +341,19 @@ impl Repo {
                 })?;
                 let level1 = parent.map(|p| p.level1_id).flatten().unwrap_or(id);
                 let level2 = parent.map(|p| p.level2_id
-                    .or_else(|| if p.level1_id.is_some() { Some(id) } else { None })).flatten();
+                    .or_else(|| p.level1_id.map(|_| id))).flatten();
                 let level3 = parent.map(|p| p.level3_id
-                    .or_else(|| if p.level2_id.is_some() { Some(id) } else { None })).flatten();
+                    .or_else(|| p.level2_id.map(|_| id))).flatten();
                 let level4 = parent.map(|p| p.level4_id
-                    .or_else(|| if p.level3_id.is_some() { Some(id) } else { None })).flatten();
+                    .or_else(|| p.level3_id.map(|_| id))).flatten();
                 let level5 = parent.map(|p| p.level5_id
-                    .or_else(|| if p.level4_id.is_some() { Some(id) } else { None })).flatten();
+                    .or_else(|| p.level4_id.map(|_| id))).flatten();
                 let level6 = parent.map(|p| p.level6_id
-                    .or_else(|| if p.level5_id.is_some() { Some(id) } else { None })).flatten();
+                    .or_else(|| p.level5_id.map(|_| id))).flatten();
                 conn.execute("update comments set level1_id = ?, level2_id = ?, level3_id = ?, \
                     level4_id = ?, level5_id = ?, level6_id = ? where id = ?",
                     params![level1, level2, level3, level4, level5, level6, id])?;
-                Ok(Comment {
+                Ok(PublicComment {
                     id,
                     parent_id,
                     name: data.name,
@@ -459,6 +487,44 @@ impl Repo {
                 let conn = pool.get()?;
                 conn.execute("delete from sessions where id = ?", [session_id])?;
                 Ok(())
+            },
+        }
+    }
+
+    pub fn get_comments(&self, offset: i64) -> Result<Page<PrivateComment>, RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                let mut select = conn.prepare("select c.id, c.thread_id, t.name, c.parent_id, c.status, c.name,
+                    c.email, c.website, c.markdown, c.html, c.created from comments c \
+                    inner join threads t on t.id = c.thread_id \
+                    order by c.created desc limit 50 offset ?")?;
+                let mut rows = select.query([offset])?;
+                let mut content = Vec::new();
+                while let Some(row) = rows.next()? {
+                    let created_string: String = row.get(10)?;
+                    let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
+                    content.push(PrivateComment {
+                        id: row.get(0)?,
+                        thread_id: row.get(1)?,
+                        thread_name: row.get(2)?,
+                        parent_id: row.get(3)?,
+                        status: row.get(4)?,
+                        name: row.get(5)?,
+                        email: row.get(6)?,
+                        website: row.get(7)?,
+                        markdown: row.get(8)?,
+                        html: row.get(9)?,
+                        created: created.to_rfc3339(),
+                        created_timestamp: created.timestamp(),
+                    });
+                }
+                let mut remaining = 0;
+                if content.len() == 50 {
+                    let size: i64 = conn.query_row("select count(*) from comments", [], |row| row.get(0))?;
+                    remaining = size - offset - 50;
+                }
+                Ok(Page { content, remaining })
             },
         }
     }

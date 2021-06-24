@@ -60,6 +60,18 @@ pub fn validate_session(
     }
 }
 
+pub fn validate_admin_session(
+    request: web::HttpRequest,
+    repo: &web::Data<Repo>,
+) -> actix_web::Result<Session> {
+    let session = validate_session(request, repo)?;
+    if session.user.admin {
+        Ok(session)
+    } else {
+        Err(error::ErrorForbidden("insufficient privileges"))
+    }
+}
+
 pub fn generate_session_id() -> String {
     let bytes: [u8; 30] = rand::random();
     base64::encode(bytes)
@@ -118,10 +130,10 @@ async fn create_auth(
         let session_id = generate_session_id();
         repo.create_session(&session_id, Local::now() + Duration::hours(1), user.id)?;
         Ok(HttpResponse::Ok()
-            .cookie(
-                Cookie::build("uncomment_session", session_id)
-                .finish()
-            )
+            .cookie(Cookie::build("uncomment_session", session_id)
+                .max_age(time::Duration::hours(1))
+                .http_only(true)
+                .finish())
             .json(SessionUser::from(user)))
     } else {
         info!("invalid password");
