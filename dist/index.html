@@ -19,61 +19,66 @@
         </ul>
       </aside>
       <main>
-        <div class="box small padding">
-          <div class="info warning">
-            Wrong username or password
-          </div>
-          <div class="field">
-            <label>Username</label>
-            <input type="text" />
-          </div>
-          <div class="field">
-            <label>Password</label>
-            <input type="password" />
-          </div>
-          <button type="submit">Log In</button>
-        </div>
-        <div class="margin-top">
-          <div class="button-group">
-            <label class="button active">
-              <input type="radio" name="commentFilter" checked/>
-              Pending
-            </label>
-            <label class="button">
-              <input type="radio" name="commentFilter"/>
-              Approved
-            </label>
-            <label class="button">
-              <input type="radio" name="commentFilter"/>
-              Rejected
-            </label>
-          </div>
-        </div>
-        <div class="box margin-top">
-          <div class="box-header">
-            <div class="box-title">
-              Comments
+        <div id="login" style="display: none;">
+          <div class="box small padding">
+            <div class="info warning">
+              Wrong username or password
             </div>
-            <button>
-              Date ↑
-            </button>
-          </div>
-          <div class="box-row">
-            Comment 1
-          </div>
-          <div class="box-row">
-            Comment 2
+            <form id="login-form">
+              <div class="field">
+                <label for="login-username">Username</label>
+                <input type="text" name="username" id="login-username" />
+              </div>
+              <div class="field">
+                <label for="login-password">Password</label>
+                <input type="password" name="password" id="login-password" />
+              </div>
+              <button type="submit">Log In</button>
+            </form>
           </div>
         </div>
-        <div class="margin-top flex-row spacing center">
-          <div>
-            <strong>1</strong>&ndash;<strong>50</strong>
-            of <strong>215</strong>
+        <div id="comments" style="display: none;">
+          <div class="margin-top">
+            <div class="button-group">
+              <label class="button active">
+                <input type="radio" name="commentFilter" checked/>
+                Pending
+              </label>
+              <label class="button">
+                <input type="radio" name="commentFilter"/>
+                Approved
+              </label>
+              <label class="button">
+                <input type="radio" name="commentFilter"/>
+                Rejected
+              </label>
+            </div>
           </div>
-          <div class="button-group">
-            <button>←</button>
-            <button>←</button>
-            <button>→</button>
+          <div class="box margin-top">
+            <div class="box-header">
+              <div class="box-title">
+                Comments
+              </div>
+              <button>
+                Date ↑
+              </button>
+            </div>
+            <div class="box-row">
+              Comment 1
+            </div>
+            <div class="box-row">
+              Comment 2
+            </div>
+          </div>
+          <div class="margin-top flex-row spacing center">
+            <div>
+              <strong>1</strong>&ndash;<strong>50</strong>
+              of <strong>215</strong>
+            </div>
+            <div class="button-group">
+              <button>←</button>
+              <button>→</button>
+            </div>
           </div>
         </div>
       </main>
