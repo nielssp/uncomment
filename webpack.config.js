@@ -34,7 +34,7 @@ module.exports = languages.map(language => {
 }).concat([
     {
         entry: {
-            dashboard: './ts/dashboard.ts',
+            dashboard: './ts/dashboard/main.ts',
         },
         module: {
             rules: [

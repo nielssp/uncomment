@@ -21,10 +21,10 @@
       <main>
         <div id="login" style="display: none;">
           <div class="box small padding">
-            <div class="info warning">
+            <div class="info warning" data-bind="info">
               Wrong username or password
             </div>
-            <form id="login-form">
+            <form data-bind="form">
               <div class="field">
                 <label for="login-username">Username</label>
                 <input type="text" name="username" id="login-username" />
@@ -33,7 +33,7 @@
                 <label for="login-password">Password</label>
                 <input type="password" name="password" id="login-password" />
               </div>
-              <button type="submit">Log In</button>
+              <button type="submit" data-bind="submit">Log In</button>
             </form>
           </div>
         </div>
@@ -60,20 +60,19 @@
                 Comments
               </div>
               <button>
+                &#10227;
+              </button>
+              <button>
                 Date ↑
               </button>
             </div>
-            <div class="box-row">
-              Comment 1
-            </div>
-            <div class="box-row">
-              Comment 2
+            <div data-bind="comments">
             </div>
           </div>
           <div class="margin-top flex-row spacing center">
             <div>
-              <strong>1</strong>&ndash;<strong>50</strong>
-              of <strong>215</strong>
+              <strong data-bind="pageStart"></strong>&ndash;<strong data-bind="pageEnd"></strong>
+              of <strong data-bind="total"></strong>
             </div>
             <div class="button-group">
               <button>←</button>
