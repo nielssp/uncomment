@@ -1,6 +1,6 @@
 use std::env;
 
-use actix_web::{HttpMessage, HttpResponse, cookie::Cookie, delete, error, get, post, web};
+use actix_web::{HttpMessage, HttpResponse, cookie::Cookie, delete, error, get, post, put, web};
 use argonautica::{Hasher, Verifier};
 use chrono::{Duration, Local};
 use log::{info, error};
@@ -12,6 +12,12 @@ use crate::db::{NewUser, Repo, Session, User};
 pub struct Credentials {
     pub username: String,
     pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdatePassword {
+    pub existing_password: String,
+    pub new_password: String,
 }
 
 #[derive(Serialize)]
@@ -151,10 +157,26 @@ async fn delete_auth(
     Ok(HttpResponse::NoContent().body(""))
 }
 
+#[put("/password")]
+async fn update_password(
+    request: web::HttpRequest,
+    repo: web::Data<Repo>,
+    data: web::Json<UpdatePassword>,
+) -> actix_web::Result<HttpResponse> {
+    let session = validate_session(request, &repo)?;
+    if verify_password(&session.user.password, &data.existing_password)? {
+        repo.change_password(session.user.id, &hash_password(&data.new_password)?)?;
+        Ok(HttpResponse::NoContent().body(""))
+    } else {
+        Err(error::ErrorBadRequest("invalid password"))
+    }
+}
+
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(get_auth)
         .service(create_auth)
-        .service(delete_auth);
+        .service(delete_auth)
+        .service(update_password);
 }
 
 pub fn install(repo: &Repo) -> actix_web::Result<()> {

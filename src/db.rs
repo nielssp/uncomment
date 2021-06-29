@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, fmt};
 use chrono::{DateTime, FixedOffset, Local};
 use log::info;
 use rusqlite::{OptionalExtension, named_params, params, types::{FromSql, FromSqlError, FromSqlResult, ValueRef}};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use thiserror::Error;
 
 use crate::migrations::SQLITE_MIGRATIONS;
@@ -15,7 +15,7 @@ pub struct Thread {
     pub title: Option<String>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum CommentStatus {
     Pending,
     Approved,
@@ -76,6 +76,7 @@ pub struct PrivateComment {
     pub html: String,
     pub created: String,
     pub created_timestamp: i64,
+    pub replies: i64,
 }
 
 pub struct NewComment {
@@ -84,6 +85,15 @@ pub struct NewComment {
     pub website: String,
     pub html: String,
     pub markdown: String,
+}
+
+pub struct UpdateComment {
+    pub name: String,
+    pub email: String,
+    pub website: String,
+    pub html: String,
+    pub markdown: String,
+    pub status: CommentStatus,
 }
 
 pub struct User {
@@ -116,7 +126,8 @@ pub struct NewUser {
 #[derive(Serialize)]
 pub struct Page<T> {
     pub content: Vec<T>,
-    pub remaining: i64,
+    pub remaining: usize,
+    pub limit: usize,
 }
 
 pub type SqlitePool = r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>;
@@ -466,11 +477,24 @@ impl Repo {
         }
     }
 
+    pub fn change_password(&self, user_id: i64, password: &str) -> Result<(), RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                conn.execute("update users set password = :password where id = :user_id", named_params! {
+                    ":password": password,
+                    ":user_id": user_id,
+                })?;
+                Ok(())
+            },
+        }
+    }
+
     pub fn create_session(&self, session_id: &str, valid_until: DateTime<Local>, user_id: i64) -> Result<(), RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
-                conn.execute("insert into sessions (id, valid_until, user_id) VALUES (:id, :valid_until, :user_id)",
+                conn.execute("insert into sessions (id, valid_until, user_id) values (:id, :valid_until, :user_id)",
                     named_params! {
                         ":id": session_id,
                         ":valid_until": valid_until.to_rfc3339(),
@@ -491,15 +515,18 @@ impl Repo {
         }
     }
 
-    pub fn get_comments(&self, offset: i64) -> Result<Page<PrivateComment>, RepoError> {
+    pub fn get_comments(&self, status: CommentStatus, asc: bool, limit: usize, offset: usize) -> Result<Page<PrivateComment>, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
-                let mut select = conn.prepare("select c.id, c.thread_id, t.name, c.parent_id, c.status, c.name,
-                    c.email, c.website, c.markdown, c.html, c.created from comments c \
+                let mut select = conn.prepare(&format!("select c.id, c.thread_id, t.name, c.parent_id, c.status, \
+                    c.name, c.email, c.website, c.markdown, c.html, c.created, \
+                    (select count(*) from comments where parent_id = c.id) as replies \
+                    from comments c \
                     inner join threads t on t.id = c.thread_id \
-                    order by c.created desc limit 50 offset ?")?;
-                let mut rows = select.query([offset])?;
+                    where c.status = ? \
+                    order by c.created {} limit ? offset ?", if asc { "asc" } else { "desc" }))?;
+                let mut rows = select.query(params![status.to_string(), limit, offset])?;
                 let mut content = Vec::new();
                 while let Some(row) = rows.next()? {
                     let created_string: String = row.get(10)?;
@@ -517,14 +544,34 @@ impl Repo {
                         html: row.get(9)?,
                         created: created.to_rfc3339(),
                         created_timestamp: created.timestamp(),
+                        replies: row.get(11)?,
                     });
                 }
                 let mut remaining = 0;
-                if content.len() == 50 {
-                    let size: i64 = conn.query_row("select count(*) from comments", [], |row| row.get(0))?;
-                    remaining = size - offset - 50;
+                if content.len() == limit {
+                    let size: usize = conn.query_row("select count(*) from comments", [], |row| row.get(0))?;
+                    remaining = size - offset - limit;
                 }
-                Ok(Page { content, remaining })
+                Ok(Page { content, remaining, limit })
+            },
+        }
+    }
+
+    pub fn update_comment(&self, id: i64, data: UpdateComment) -> Result<(), RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                conn.execute("update comments set name = :name, website = :website, email = :email, \
+                    markdown = :markdown, html = :html, status = :status where id = :id", named_params! {
+                        ":name": data.name,
+                        ":website": data.website,
+                        ":email": data.email,
+                        ":markdown": data.markdown,
+                        ":html": data.html,
+                        ":status": data.status.to_string(),
+                        ":id": id,
+                    })?;
+                Ok(())
             },
         }
     }

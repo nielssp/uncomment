@@ -10,12 +10,13 @@
     <div class="root">
       <aside>
         <h1>Uncomment</h1>
-        <ul role="menu">
-          <li>Comments</li>
-          <li>Threads</li>
-          <li>Users</li>
-          <li>Settings</li>
-          <li>Log Out</li>
+        <ul role="menu" id="menu">
+          <li><a href="#comments" data-bind="comments">Comments</a></li>
+          <li><a href="#threads" data-bind="threads">Threads</a></li>
+          <li><a href="#users" data-bind="users">Users</a></li>
+          <li><a href="#change-password" data-bind="changePassword">Change Password</a></li>
+          <li><a href="#" data-bind="logOut">Log Out</a></li>
+          <li><a href="#" data-bind="logIn">Log In</a></li>
         </ul>
       </aside>
       <main>
@@ -38,20 +39,17 @@
           </div>
         </div>
         <div id="comments" style="display: none;">
-          <div class="margin-top">
+          <div>
             <div class="button-group">
-              <label class="button active">
-                <input type="radio" name="commentFilter" checked/>
+              <button data-bind="filterPending" aria-pressed="true">
                 Pending
-              </label>
-              <label class="button">
-                <input type="radio" name="commentFilter"/>
+              </button>
+              <button data-bind="filterApproved" aria-pressed="false">
                 Approved
-              </label>
-              <label class="button">
-                <input type="radio" name="commentFilter"/>
+              </button>
+              <button data-bind="filterRejected" aria-pressed="false">
                 Rejected
-              </label>
+              </button>
             </div>
           </div>
           <div class="box margin-top">
@@ -59,25 +57,45 @@
               <div class="box-title">
                 Comments
               </div>
-              <button>
+              <button data-bind="refresh">
                 &#10227;
               </button>
-              <button>
-                Date ↑
+              <button data-bind="sort">
+                Date ↓
               </button>
             </div>
             <div data-bind="comments">
             </div>
           </div>
-          <div class="margin-top flex-row spacing center">
+          <div class="margin-top flex-row spacing middle end">
             <div>
-              <strong data-bind="pageStart"></strong>&ndash;<strong data-bind="pageEnd"></strong>
-              of <strong data-bind="total"></strong>
+              <strong><span data-bind="pageStart"></span>&ndash;<span data-bind="pageEnd"></span></strong>
+              of <span data-bind="total"></span>
             </div>
             <div class="button-group">
-              <button>←</button>
-              <button>→</button>
+              <button data-bind="prev">←</button>
+              <button data-bind="next">→</button>
             </div>
+          </div>
+        </div>
+        <div id="change-password" style="display: none;">
+          <div class="box small padding">
+            <div class="info warning" data-bind="info"></div>
+            <form data-bind="form">
+              <div class="field">
+                <label for="change-password-existing-password">Existing Password</label>
+                <input type="password" name="existingPassword" id="change-password-existing-password" />
+              </div>
+              <div class="field">
+                <label for="change-password-new-password">New Password</label>
+                <input type="password" name="newPassword" id="change-password-new-password" />
+              </div>
+              <div class="field">
+                <label for="change-password-confirm-password">Confirm New Password</label>
+                <input type="password" name="confirmPassword" id="change-password-confirm-password" />
+              </div>
+              <button type="submit" data-bind="submit">Change Password</button>
+            </form>
           </div>
         </div>
       </main>

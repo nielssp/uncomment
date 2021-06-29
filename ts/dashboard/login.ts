@@ -1,4 +1,4 @@
-import { Api } from "./api";
+import { Auth } from "./auth";
 import { Page, Router } from "./router";
 
 export class Login implements Page {
@@ -10,7 +10,7 @@ export class Login implements Page {
             submit: HTMLButtonElement,
         },
         private services: {
-            api: Api,
+            auth: Auth,
             router: Router,
         },
     ) {
@@ -20,6 +20,7 @@ export class Login implements Page {
 
     enter(): void {
         this.template.root.style.display = '';
+        this.template.info.style.display = 'none';
     }
 
     leave(): void {
@@ -29,12 +30,15 @@ export class Login implements Page {
     async submit(e: Event) {
         e.preventDefault();
         this.template.submit.disabled = true;
+        this.template.info.style.display = 'none';
         try {
-            await this.services.api.post('auth', {
+            await this.services.auth.authenticate({
                 username: this.template.form.username.value,
                 password: this.template.form.password.value,
             });
             this.services.router.navigate(['comments']);
+        } catch (error) {
+            this.template.info.style.display = '';
         } finally {
             this.template.submit.disabled = false;
         }
