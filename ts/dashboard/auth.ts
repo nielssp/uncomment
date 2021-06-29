@@ -49,8 +49,11 @@ export class Auth {
     }
 
     async logOut() {
-        await this.api.delete('auth');
-        this._user = undefined;
-        this.userChange.emit(undefined);
+        try {
+            await this.api.delete('auth');
+        } finally {
+            this._user = undefined;
+            this.userChange.emit(undefined);
+        }
     }
 }

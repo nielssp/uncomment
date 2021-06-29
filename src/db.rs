@@ -557,6 +557,42 @@ impl Repo {
         }
     }
 
+    pub fn get_comment(&self, id: i64) -> Result<Option<PrivateComment>, RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                let mut select = conn.prepare("select c.id, c.thread_id, t.name, c.parent_id, c.status, \
+                    c.name, c.email, c.website, c.markdown, c.html, c.created, \
+                    (select count(*) from comments where parent_id = c.id) as replies \
+                    from comments c \
+                    inner join threads t on t.id = c.thread_id \
+                    where c.id = ?")?;
+                let mut rows = select.query([id])?;
+                if let Some(row) = rows.next()? {
+                    let created_string: String = row.get(10)?;
+                    let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
+                    Ok(Some(PrivateComment {
+                        id: row.get(0)?,
+                        thread_id: row.get(1)?,
+                        thread_name: row.get(2)?,
+                        parent_id: row.get(3)?,
+                        status: row.get(4)?,
+                        name: row.get(5)?,
+                        email: row.get(6)?,
+                        website: row.get(7)?,
+                        markdown: row.get(8)?,
+                        html: row.get(9)?,
+                        created: created.to_rfc3339(),
+                        created_timestamp: created.timestamp(),
+                        replies: row.get(11)?,
+                    }))
+                } else {
+                    Ok(None)
+                }
+            },
+        }
+    }
+
     pub fn update_comment(&self, id: i64, data: UpdateComment) -> Result<(), RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {

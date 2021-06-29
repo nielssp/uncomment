@@ -4,6 +4,10 @@
     box-sizing: border-box;
 }
 
+html {
+    overflow-y: scroll;
+}
+
 body {
     font-family: system-ui, -apple-system, sans-serif;
     background-color: #ECE9D8;
@@ -90,9 +94,14 @@ body {
     flex-direction: row;
     align-items: center;
     padding: 1rem;
+    transition: background 0.3s;
 
     & + .box-row {
         border-top: 1px solid #E9EAEB;
+    }
+
+    &.editting {
+        background-color: #F2F6FC;
     }
 }
 

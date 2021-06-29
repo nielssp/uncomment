@@ -60,6 +60,7 @@ export class Comments implements Page {
         this.template.filterPending.disabled = true;
         this.template.filterApproved.disabled = true;
         this.template.filterRejected.disabled = true;
+        this.offset = 0;
         this.filter = filter;
         try {
             await this.fetchComments();
@@ -144,27 +145,29 @@ export class Comments implements Page {
 }
 
 const commentTemplate = `<div class="box-row">
-<div>
-    <div><a data-bind="thread"></a></div>
-    <div data-bind="comment" class="comment">
-        <div class="comment-header">
-            <span class="author" data-bind="author"></span>
-            <span class="email" data-bind="email"></span>
-            <time data-bind="created"></time>
+    <div>
+        <div><a data-bind="thread"></a></div>
+        <div data-bind="comment" class="comment">
+            <div class="comment-header">
+                <span class="author" data-bind="author"></span>
+                <span class="email" data-bind="email"></span>
+                <time data-bind="created"></time>
+            </div>
+            <div class="comment-body" data-bind="content"></div>
+            <div class="comment-actions">
+                <a data-bind="reply">Reply</a>
+                <a data-bind="replies"></a>
+                <a data-bind="parent">Parent</a>
+            </div>
         </div>
-        <div class="comment-body" data-bind="content"></div>
-        <div class="comment-actions">
-            <a data-bind="reply">Reply</a>
-            <a data-bind="replies"></a>
-            <a data-bind="parent">Parent</a>
+        <div data-bind="actions" class="button-group">
+            <button data-bind="edit">Edit</button>
+            <button data-bind="approve">Approve</button>
+            <button data-bind="reject">Reject</button>
+        </div>
+        <div data-bind="editForm">
         </div>
     </div>
-    <div class="button-group">
-        <button data-bind="edit">Edit</button>
-        <button data-bind="approve">Approve</button>
-        <button data-bind="reject">Reject</button>
-    </div>
-</div>
 </div>`;
 
 class CommentRow {
@@ -180,8 +183,11 @@ class CommentRow {
             reply: HTMLLinkElement,
             replies: HTMLLinkElement,
             parent: HTMLLinkElement,
+            actions: HTMLElement,
+            edit: HTMLButtonElement,
             approve: HTMLButtonElement,
             reject: HTMLButtonElement,
+            editForm: HTMLElement,
         },
         private data: {
             comment: Comment,
@@ -213,8 +219,51 @@ class CommentRow {
         template.parent.style.display = comment.parent_id ? '' : 'none';
         template.approve.disabled = comment.status === 'Approved';
         template.reject.disabled = comment.status === 'Rejected';
+        template.edit.onclick = () => this.edit();
         template.approve.onclick = () => this.approve();
         template.reject.onclick = () => this.reject();
+    }
+
+    edit() {
+        appendComponent(this.template.editForm, CommentForm, commentFormTemplate, {
+            api: this.data.api,
+            comment: this.data.comment,
+            onCancel: () => this.closeEdit(),
+            onSave: comment => {
+                this.update(comment);
+                this.closeEdit();
+            },
+        });
+        this.template.comment.style.display = 'none';
+        this.template.actions.style.display = 'none';
+        this.template.root.classList.add('editting');
+    }
+
+    update(comment: Comment) {
+        this.data.comment = comment;
+        if (comment.website) {
+            const link = document.createElement('a');
+            link.textContent = comment.name;
+            link.href = comment.website;
+            this.template.author.innerHTML = '';
+            this.template.author.appendChild(link);
+        } else {
+            this.template.author.textContent = comment.name;
+        }
+        if (comment.email) {
+            this.template.email.style.display = '';
+            this.template.email.textContent = comment.email;
+        } else {
+            this.template.email.style.display = 'none';
+        }
+        this.template.content.textContent = comment.markdown;
+    }
+
+    closeEdit() {
+        this.template.root.classList.remove('editting');
+        this.template.editForm.innerHTML = '';
+        this.template.comment.style.display = '';
+        this.template.actions.style.display = '';
     }
 
     async approve() {
@@ -240,6 +289,75 @@ class CommentRow {
             this.template.reject.disabled = true;
         } catch (error) {
             alert('Server error');
+        }
+    }
+}
+
+const commentFormTemplate = `<form>
+    <div class="field">
+        <label>Name</label>
+        <input type="text" data-bind="name"/>
+    </div>
+    <div class="field">
+        <label>Email</label>
+        <input type="text" data-bind="email"/>
+    </div>
+    <div class="field">
+        <label>Website</label>
+        <input type="text" data-bind="website"/>
+    </div>
+    <div class="field">
+        <label>Content</label>
+        <textarea data-bind="content"></textarea>
+    </div>
+    <div class="flex-row spacing">
+        <button data-bind="cancel" type="button">Cancel</button>
+        <button data-bind="submit" type="submit">Save</button>
+    </div>
+</form>`;
+
+class CommentForm {
+    constructor(
+        private template: {
+            root: HTMLFormElement,
+            name: HTMLInputElement,
+            email: HTMLInputElement,
+            website: HTMLInputElement,
+            content: HTMLTextAreaElement,
+            cancel: HTMLButtonElement,
+            submit: HTMLButtonElement,
+        },
+        private data: {
+            api: Api,
+            comment: Comment,
+            onCancel: () => void,
+            onSave: (comment: Comment) => void,
+        }
+    ) {
+        template.name.value = data.comment.name;
+        template.email.value = data.comment.email;
+        template.website.value = data.comment.website;
+        template.content.value = data.comment.markdown;
+        template.cancel.onclick = () => data.onCancel();
+        template.root.onsubmit = e => this.submit(e);
+    }
+
+    async submit(e: Event) {
+        e.preventDefault();
+        this.template.submit.disabled = true;
+        try {
+            const comment = await this.data.api.put<Comment>(`admin/comments/${this.data.comment.id}`, {
+                name: this.template.name.value,
+                email: this.template.email.value,
+                website: this.template.website.value,
+                markdown: this.template.content.value,
+                status: this.data.comment.status,
+            });
+            this.data.onSave(comment);
+        } catch (error) {
+            alert('Server error');
+        } finally {
+            this.template.submit.disabled = false;
         }
     }
 }

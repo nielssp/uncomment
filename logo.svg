@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32"
+   height="32"
+   viewBox="0 0 8.4666663 8.466667"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1 (c4e8f9ed74, 2021-05-24)"
+   sodipodi:docname="logo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="px"
+     showgrid="false"
+     showguides="true"
+     inkscape:guide-bbox="true"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     units="px"
+     inkscape:zoom="28.4375"
+     inkscape:cx="18.215385"
+     inkscape:cy="19.621978"
+     inkscape:window-width="3840"
+     inkscape:window-height="2096"
+     inkscape:window-x="0"
+     inkscape:window-y="33"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1">
+    <sodipodi:guide
+       position="-7.7888883,9.5776908"
+       orientation="-1,0"
+       id="guide14365"
+       inkscape:label=""
+       inkscape:locked="false"
+       inkscape:color="rgb(0,0,255)" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       id="rect59"
+       style="fill:#ece9d8;stroke-width:0.470748;stop-color:#000000"
+       d="M 0,0 H 8.4666667 V 8.4666667 H 0 Z"
+       sodipodi:nodetypes="ccccc" />
+    <g
+       aria-label="//"
+       transform="scale(0.92968052,1.0756383)"
+       id="text4023"
+       style="font-size:9.68532px;line-height:190.655px;font-family:Georgia;-inkscape-font-specification:Georgia;text-align:center;text-anchor:middle;fill:#416aa0;stroke-width:0.161295;stop-color:#000000">
+      <path
+         d="M 4.5535356,0.49195595 1.9921718,7.3793393 H 0.56919195 L 3.1305557,0.49195595 Z"
+         style="font-weight:bold;font-family:'Open Sans';-inkscape-font-specification:'Open Sans Bold';stroke:none;fill:#416aa0;fill-opacity:1"
+         id="path16433"
+         sodipodi:nodetypes="ccccc" />
+      <path
+         d="M 8.5378792,0.49195595 5.9765154,7.3793393 H 4.5535356 L 7.1148993,0.49195595 Z"
+         style="font-weight:bold;font-family:'Open Sans';-inkscape-font-specification:'Open Sans Bold';stroke:none;fill:#416aa0;fill-opacity:1"
+         id="path16435"
+         sodipodi:nodetypes="ccccc" />
+    </g>
+  </g>
+</svg>

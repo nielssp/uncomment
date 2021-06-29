@@ -108,9 +108,11 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
         if (replyFormOpen) {
             template.replyForm.innerHTML = '';
             replyFormOpen = false;
+            template.replyLink.textContent = language.reply;
         } else {
             applyTemplate(template.replyForm, formTemplate);
             replyFormOpen = true;
+            template.replyLink.textContent = language.cancel;
         }
     });
     template.replyForm.addEventListener('submit', async e => {
@@ -124,6 +126,7 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
         addCommentToContainer(config, template.replies, reply);
         template.replyForm.innerHTML = '';
         replyFormOpen = false;
+        template.replyLink.textContent = language.reply;
     });
     comment.replies.forEach(reply => addCommentToContainer(config, template.replies, reply));
     for (let i = 0; i < temp.children.length; i++) {

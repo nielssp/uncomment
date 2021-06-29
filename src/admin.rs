@@ -38,20 +38,26 @@ async fn update_comment(
     web::Path(id): web::Path<i64>,
     data: web::Json<UpdateCommentData>,
 ) -> actix_web::Result<HttpResponse> {
-    let session = auth::validate_admin_session(request, &repo)?;
+    auth::validate_admin_session(request, &repo)?;
+    let mut comment = repo.get_comment(id)?.ok_or_else(|| error::ErrorNotFound("comment not found"))?;
     let parser = Parser::new(data.markdown.as_str());
     let mut unsafe_html = String::new();
     pulldown_cmark::html::push_html(&mut unsafe_html, parser);
-    let safe_html = ammonia::clean(&*unsafe_html);
+    comment.name = data.name.clone();
+    comment.email = data.email.clone();
+    comment.website = data.website.clone();
+    comment.markdown = data.markdown.clone();
+    comment.html = ammonia::clean(&*unsafe_html);
+    comment.status = data.status;
     repo.update_comment(id, UpdateComment {
         name: data.name.clone(),
         email: data.email.clone(),
         website: data.website.clone(),
         markdown: data.markdown.clone(),
-        html: safe_html,
+        html: comment.html.clone(),
         status: data.status,
     })?;
-    Ok(HttpResponse::NoContent().body(""))
+    Ok(HttpResponse::Ok().json(comment))
 }
 
 #[delete("/admin/comments/{id:\\d+}")]
