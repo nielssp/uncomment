@@ -1,4 +1,4 @@
-import {language} from './languages/default';
+import { language } from './languages/default';
 import { getRelative } from './util';
 
 const mainTemplate = '<form data-bind="newCommentForm"></form><div class="comments" data-bind="comments"></div>';
@@ -81,7 +81,7 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
     const template = applyTemplate<CommentTemplate>(temp, commentTemplate);
     template.comment.id = `comment-${comment.id}`;
     if (!comment.name) {
-        comment.name = 'Anonymous';
+        comment.name = language.anonymous;
     }
     if (comment.website) {
         const link = document.createElement('a');
@@ -158,6 +158,7 @@ function load(config: Config) {
             website: main.newCommentForm.website.value,
             content: main.newCommentForm.content.value,
         });
+        main.newCommentForm.content.value = '';
         addCommentToContainer(config, main.comments, comment);
     });
     loadComments(config, main.comments);

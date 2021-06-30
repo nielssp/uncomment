@@ -9,6 +9,7 @@ export const language = {
     submit: 'Submit',
     reply: 'Reply',
     cancel: 'Cancel',
+    anonymous: 'Anonymous',
     date: (d: Date) => {
         return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${d.getHours()}:${(d.getMinutes() < 10 ? '0' : '') + d.getMinutes()}`;
     },

@@ -1,7 +1,7 @@
 use actix_web::{HttpMessage, HttpResponse, cookie::Cookie, delete, error, get, put, post, web};
 use pulldown_cmark::Parser;
 
-use crate::{auth, db::{CommentStatus, Repo, UpdateComment}};
+use crate::{auth, db::{CommentFilter, CommentStatus, Repo, UpdateComment}};
 
 #[derive(serde::Deserialize)]
 struct CommentQuery {
@@ -27,8 +27,21 @@ async fn get_comments(
     query: web::Query<CommentQuery>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &repo)?;
-    Ok(HttpResponse::Ok().json(repo.get_comments(query.status.unwrap_or(
-                    CommentStatus::Pending), query.asc.unwrap_or(false), 10, query.offset.unwrap_or(0))?))
+    let filter = query.parent_id.map(|id| CommentFilter::Parent(id))
+        .unwrap_or_else(|| CommentFilter::Status(query.status.unwrap_or(CommentStatus::Pending)));
+    Ok(HttpResponse::Ok().json(repo.get_comments(filter,
+                query.asc.unwrap_or(false), 10, query.offset.unwrap_or(0))?))
+}
+
+#[get("/admin/comments/{id:\\d+}")]
+async fn get_comment(
+    request: web::HttpRequest,
+    repo: web::Data<Repo>,
+    web::Path(id): web::Path<i64>,
+) -> actix_web::Result<HttpResponse> {
+    auth::validate_admin_session(request, &repo)?;
+    let comment = repo.get_comment(id)?.ok_or_else(|| error::ErrorNotFound("comment not found"))?;
+    Ok(HttpResponse::Ok().json(comment))
 }
 
 #[put("/admin/comments/{id:\\d+}")]
@@ -72,6 +85,7 @@ async fn delete_comment(
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(get_comments)
+        .service(get_comment)
         .service(update_comment)
         .service(delete_comment);
 }

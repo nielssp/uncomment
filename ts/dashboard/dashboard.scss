@@ -45,7 +45,7 @@ body {
       flex-direction: column;
     }
 
-    @media screen and (max-width: 40rem) {
+    @media screen and (max-width: 50rem) {
         flex-direction: column;
     }
 }
@@ -160,6 +160,10 @@ body {
     &.end {
         justify-content: flex-end;
     }
+
+    &.space-between {
+        justify-content: space-between;
+    }
 }
 
 .flex-column {
@@ -168,6 +172,10 @@ body {
 
     &.spacing > * + * {
         margin-top: 1rem;
+    }
+
+    &.stretch {
+        align-items: stretch;
     }
 }
 
@@ -180,7 +188,7 @@ a {
     }
 }
 
-button, input {
+button, input, textarea {
     font-family: inherit;
     font-size: inherit;
 }
@@ -300,6 +308,14 @@ button,
 
 .loading {
     opacity: 0.5;
+}
+
+.comment-row {
+    @media screen and (min-width: 60rem) {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
 }
 
 .comment {

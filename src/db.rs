@@ -2,7 +2,7 @@ use std::{collections::{HashMap, HashSet}, fmt};
 
 use chrono::{DateTime, FixedOffset, Local};
 use log::info;
-use rusqlite::{OptionalExtension, named_params, params, types::{FromSql, FromSqlError, FromSqlResult, ValueRef}};
+use rusqlite::{OptionalExtension, ToSql, named_params, params, params_from_iter, types::{FromSql, FromSqlError, FromSqlResult, ValueRef}};
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
 
@@ -77,6 +77,11 @@ pub struct PrivateComment {
     pub created: String,
     pub created_timestamp: i64,
     pub replies: i64,
+}
+
+pub enum CommentFilter {
+    Status(CommentStatus),
+    Parent(i64),
 }
 
 pub struct NewComment {
@@ -515,41 +520,61 @@ impl Repo {
         }
     }
 
-    pub fn get_comments(&self, status: CommentStatus, asc: bool, limit: usize, offset: usize) -> Result<Page<PrivateComment>, RepoError> {
+    fn query_comments<P: rusqlite::Params>(conn: &rusqlite::Connection, partial_sql: &str, params: P) -> Result<Vec<PrivateComment>, RepoError> {
+        let mut select = conn.prepare(&format!("select c.id, c.thread_id, t.name, c.parent_id, c.status, \
+            c.name, c.email, c.website, c.markdown, c.html, c.created, \
+            (select count(*) from comments where parent_id = c.id) as replies \
+            from comments c \
+            inner join threads t on t.id = c.thread_id {}", partial_sql))?;
+        let mut rows = select.query(params)?;
+        let mut content = Vec::new();
+        while let Some(row) = rows.next()? {
+            let created_string: String = row.get(10)?;
+            let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
+            content.push(PrivateComment {
+                id: row.get(0)?,
+                thread_id: row.get(1)?,
+                thread_name: row.get(2)?,
+                parent_id: row.get(3)?,
+                status: row.get(4)?,
+                name: row.get(5)?,
+                email: row.get(6)?,
+                website: row.get(7)?,
+                markdown: row.get(8)?,
+                html: row.get(9)?,
+                created: created.to_rfc3339(),
+                created_timestamp: created.timestamp(),
+                replies: row.get(11)?,
+            });
+        }
+        Ok(content)
+    }
+
+    pub fn get_comments(&self, filter: CommentFilter, asc: bool, limit: usize, offset: usize) -> Result<Page<PrivateComment>, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
-                let mut select = conn.prepare(&format!("select c.id, c.thread_id, t.name, c.parent_id, c.status, \
-                    c.name, c.email, c.website, c.markdown, c.html, c.created, \
-                    (select count(*) from comments where parent_id = c.id) as replies \
-                    from comments c \
-                    inner join threads t on t.id = c.thread_id \
-                    where c.status = ? \
-                    order by c.created {} limit ? offset ?", if asc { "asc" } else { "desc" }))?;
-                let mut rows = select.query(params![status.to_string(), limit, offset])?;
-                let mut content = Vec::new();
-                while let Some(row) = rows.next()? {
-                    let created_string: String = row.get(10)?;
-                    let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
-                    content.push(PrivateComment {
-                        id: row.get(0)?,
-                        thread_id: row.get(1)?,
-                        thread_name: row.get(2)?,
-                        parent_id: row.get(3)?,
-                        status: row.get(4)?,
-                        name: row.get(5)?,
-                        email: row.get(6)?,
-                        website: row.get(7)?,
-                        markdown: row.get(8)?,
-                        html: row.get(9)?,
-                        created: created.to_rfc3339(),
-                        created_timestamp: created.timestamp(),
-                        replies: row.get(11)?,
-                    });
-                }
+                let order_by = if asc {
+                    "order by c.created asc limit ? offset ?"
+                } else {
+                    "order by c.created desc limit ? offset ?"
+                };
+                let content = match filter {
+                    CommentFilter::Status(status) => Self::query_comments(&conn,
+                        &format!("where c.status = ? {}", order_by), params![status.to_string(), limit, offset])?,
+                    CommentFilter::Parent(parent_id) => Self::query_comments(&conn,
+                        &format!("where c.parent_id = ? {}", order_by), params![parent_id, limit, offset])?,
+                };
                 let mut remaining = 0;
                 if content.len() == limit {
-                    let size: usize = conn.query_row("select count(*) from comments", [], |row| row.get(0))?;
+                    let size: usize = match filter {
+                        CommentFilter::Status(status) =>
+                            conn.query_row("select count(*) from comments where status = ?",
+                                [status.to_string()], |row| row.get(0))?,
+                        CommentFilter::Parent(parent_id) =>
+                            conn.query_row("select count(*) from comments where parent_id = ?",
+                                [parent_id], |row| row.get(0))?,
+                    };
                     remaining = size - offset - limit;
                 }
                 Ok(Page { content, remaining, limit })
@@ -561,34 +586,7 @@ impl Repo {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
-                let mut select = conn.prepare("select c.id, c.thread_id, t.name, c.parent_id, c.status, \
-                    c.name, c.email, c.website, c.markdown, c.html, c.created, \
-                    (select count(*) from comments where parent_id = c.id) as replies \
-                    from comments c \
-                    inner join threads t on t.id = c.thread_id \
-                    where c.id = ?")?;
-                let mut rows = select.query([id])?;
-                if let Some(row) = rows.next()? {
-                    let created_string: String = row.get(10)?;
-                    let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
-                    Ok(Some(PrivateComment {
-                        id: row.get(0)?,
-                        thread_id: row.get(1)?,
-                        thread_name: row.get(2)?,
-                        parent_id: row.get(3)?,
-                        status: row.get(4)?,
-                        name: row.get(5)?,
-                        email: row.get(6)?,
-                        website: row.get(7)?,
-                        markdown: row.get(8)?,
-                        html: row.get(9)?,
-                        created: created.to_rfc3339(),
-                        created_timestamp: created.timestamp(),
-                        replies: row.get(11)?,
-                    }))
-                } else {
-                    Ok(None)
-                }
+                Ok(Self::query_comments(&conn, "where c.id = ?", [id])?.into_iter().next())
             },
         }
     }

@@ -22,9 +22,20 @@ export interface Comment {
     replies: number;
 }
 
+type Filter = {
+    type: 'status',
+    value: CommentStatus,
+} | {
+    type: 'parent_id',
+    value: number,
+} | {
+    type: 'id',
+    value: number,
+};
+
 export class Comments implements Page {
     offset = 0;
-    filter: CommentStatus = 'Pending';
+    filter: Filter = {type: 'status', value: 'Pending'};
     asc: boolean = false;
     comments?: ApiPage<Comment>;
 
@@ -47,16 +58,16 @@ export class Comments implements Page {
             api: Api,
         },
     ) {
-        template.filterPending.onclick = () => this.applyFilter('Pending');
-        template.filterApproved.onclick = () => this.applyFilter('Approved');
-        template.filterRejected.onclick = () => this.applyFilter('Rejected');
+        template.filterPending.onclick = () => this.applyFilter({type: 'status', value: 'Pending'});
+        template.filterApproved.onclick = () => this.applyFilter({type: 'status', value: 'Approved'});
+        template.filterRejected.onclick = () => this.applyFilter({type: 'status', value: 'Rejected'});
         template.refresh.onclick = () => this.fetchComments();
         template.sort.onclick = () => this.sort();
         template.next.onclick = () => this.next();
         template.prev.onclick = () => this.prev();
     }
 
-    async applyFilter(filter: CommentStatus) {
+    async applyFilter(filter: Filter) {
         this.template.filterPending.disabled = true;
         this.template.filterApproved.disabled = true;
         this.template.filterRejected.disabled = true;
@@ -64,9 +75,9 @@ export class Comments implements Page {
         this.filter = filter;
         try {
             await this.fetchComments();
-            this.template.filterPending.setAttribute('aria-pressed', `${this.filter === 'Pending'}`);
-            this.template.filterApproved.setAttribute('aria-pressed', `${this.filter === 'Approved'}`);
-            this.template.filterRejected.setAttribute('aria-pressed', `${this.filter === 'Rejected'}`);
+            this.template.filterPending.setAttribute('aria-pressed', `${this.filter.value === 'Pending'}`);
+            this.template.filterApproved.setAttribute('aria-pressed', `${this.filter.value === 'Approved'}`);
+            this.template.filterRejected.setAttribute('aria-pressed', `${this.filter.value === 'Rejected'}`);
         } finally {
             this.template.filterPending.disabled = false;
             this.template.filterApproved.disabled = false;
@@ -89,14 +100,24 @@ export class Comments implements Page {
         this.template.prev.disabled = true;
         this.template.next.disabled = true;
         try {
-            this.comments = await this.services.api.get<ApiPage<Comment>>(
-                `admin/comments?offset=${this.offset}&status=${this.filter}&asc=${this.asc}`);
+            if (this.filter.type === 'id') {
+                this.comments = {
+                    content: [await this.services.api.get<Comment>(`admin/comments/${this.filter.value}`)],
+                    remaining: 0,
+                    limit: 1,
+                };
+                this.offset = 0;
+            } else {
+                this.comments = await this.services.api.get<ApiPage<Comment>>(
+                    `admin/comments?offset=${this.offset}&${this.filter.type}=${this.filter.value}&asc=${this.asc}`);
+            }
             this.template.pageStart.textContent = `${this.offset + 1}`;
             this.template.pageEnd.textContent = `${this.offset + this.comments.content.length}`;
             this.template.total.textContent = `${this.offset + this.comments.content.length + this.comments.remaining}`;
             this.template.comments.innerHTML = '';
             this.comments.content.forEach(comment => {
-                appendComponent(this.template.comments, CommentRow, commentTemplate, {comment, api: this.services.api})
+                appendComponent(this.template.comments, CommentRow, commentTemplate,
+                    {comment, api: this.services.api, comments: this})
             });
             if (this.offset > 0) {
                 this.template.prev.disabled = false;
@@ -144,10 +165,10 @@ export class Comments implements Page {
     }
 }
 
-const commentTemplate = `<div class="box-row">
-    <div>
-        <div><a data-bind="thread"></a></div>
-        <div data-bind="comment" class="comment">
+const commentTemplate = `<div class="box-row flex-column stretch">
+    <div><a data-bind="thread"></a></div>
+    <div class="comment-row">
+        <div data-bind="comment" class="comment grow">
             <div class="comment-header">
                 <span class="author" data-bind="author"></span>
                 <span class="email" data-bind="email"></span>
@@ -155,18 +176,17 @@ const commentTemplate = `<div class="box-row">
             </div>
             <div class="comment-body" data-bind="content"></div>
             <div class="comment-actions">
-                <a data-bind="reply">Reply</a>
-                <a data-bind="replies"></a>
-                <a data-bind="parent">Parent</a>
+                <a href="" data-bind="replies"></a>
+                <a href="" data-bind="parent">Parent</a>
             </div>
         </div>
-        <div data-bind="actions" class="button-group">
+        <div data-bind="actions" class="button-group" style="margin-left: auto;">
             <button data-bind="edit">Edit</button>
             <button data-bind="approve">Approve</button>
             <button data-bind="reject">Reject</button>
         </div>
-        <div data-bind="editForm">
-        </div>
+    </div>
+    <div data-bind="editForm">
     </div>
 </div>`;
 
@@ -180,7 +200,6 @@ class CommentRow {
             email: HTMLElement,
             created: HTMLTimeElement,
             content: HTMLElement,
-            reply: HTMLLinkElement,
             replies: HTMLLinkElement,
             parent: HTMLLinkElement,
             actions: HTMLElement,
@@ -192,6 +211,7 @@ class CommentRow {
         private data: {
             comment: Comment,
             api: Api,
+            comments: Comments,
         }
     ) {
         const comment = data.comment;
@@ -216,12 +236,24 @@ class CommentRow {
         template.created.dateTime = created.toISOString();
         template.content.textContent = comment.markdown;
         template.replies.textContent = (n => n === 1 ? `${n} reply` : `${n} replies`)(comment.replies);
+        template.replies.onclick = e => this.replies(e);
         template.parent.style.display = comment.parent_id ? '' : 'none';
+        template.parent.onclick = e => this.parent(e);
         template.approve.disabled = comment.status === 'Approved';
         template.reject.disabled = comment.status === 'Rejected';
         template.edit.onclick = () => this.edit();
         template.approve.onclick = () => this.approve();
         template.reject.onclick = () => this.reject();
+    }
+
+    replies(e: MouseEvent) {
+        e.preventDefault();
+        this.data.comments.applyFilter({type: 'parent_id', value: this.data.comment.id});
+    }
+
+    parent(e: MouseEvent) {
+        e.preventDefault();
+        this.data.comments.applyFilter({type: 'id', value: this.data.comment.parent_id!});
     }
 
     edit() {
@@ -308,9 +340,9 @@ const commentFormTemplate = `<form>
     </div>
     <div class="field">
         <label>Content</label>
-        <textarea data-bind="content"></textarea>
+        <textarea data-bind="content" rows=6></textarea>
     </div>
-    <div class="flex-row spacing">
+    <div class="flex-row space-between">
         <button data-bind="cancel" type="button">Cancel</button>
         <button data-bind="submit" type="submit">Save</button>
     </div>
