@@ -175,6 +175,7 @@ const commentTemplate = `<div class="box-row flex-column stretch">
                 <time data-bind="created"></time>
             </div>
             <div class="comment-body" data-bind="content"></div>
+            <div><a href="#" data-bind="more">[more]</a></div>
             <div class="comment-actions">
                 <a href="" data-bind="replies"></a>
                 <a href="" data-bind="parent">Parent</a>
@@ -191,6 +192,8 @@ const commentTemplate = `<div class="box-row flex-column stretch">
 </div>`;
 
 class CommentRow {
+    private expanded = false;
+
     constructor(
         private template: {
             root: HTMLElement,
@@ -200,6 +203,7 @@ class CommentRow {
             email: HTMLElement,
             created: HTMLTimeElement,
             content: HTMLElement,
+            more: HTMLLinkElement,
             replies: HTMLLinkElement,
             parent: HTMLLinkElement,
             actions: HTMLElement,
@@ -217,24 +221,12 @@ class CommentRow {
         const comment = data.comment;
         template.thread.textContent = comment.thread_name;
         template.comment.classList.add(comment.status.toLowerCase());
-        if (comment.website) {
-            const link = document.createElement('a');
-            link.textContent = comment.name;
-            link.href = comment.website;
-            template.author.appendChild(link);
-        } else {
-            template.author.textContent = comment.name;
-        }
-        if (comment.email) {
-            template.email.textContent = comment.email;
-        } else {
-            template.email.style.display = 'none';
-        }
+        this.update(comment);
         const created = new Date(comment.created_timestamp * 1000);
         template.created.textContent = getRelative(created);
         template.created.title = language.date(created);
         template.created.dateTime = created.toISOString();
-        template.content.textContent = comment.markdown;
+        template.more.onclick = e => this.more(e);
         template.replies.textContent = (n => n === 1 ? `${n} reply` : `${n} replies`)(comment.replies);
         template.replies.onclick = e => this.replies(e);
         template.parent.style.display = comment.parent_id ? '' : 'none';
@@ -244,6 +236,19 @@ class CommentRow {
         template.edit.onclick = () => this.edit();
         template.approve.onclick = () => this.approve();
         template.reject.onclick = () => this.reject();
+    }
+
+    more(e: MouseEvent) {
+        e.preventDefault();
+        if (this.expanded) {
+            this.template.content.style.maxHeight = '';
+            this.template.more.textContent = '[more]';
+            this.expanded = false;
+        } else {
+            this.template.content.style.maxHeight = `${this.template.content.scrollHeight}px`;
+            this.template.more.textContent = '[less]';
+            this.expanded = true;
+        }
     }
 
     replies(e: MouseEvent) {
@@ -272,15 +277,23 @@ class CommentRow {
     }
 
     update(comment: Comment) {
+        this.template.content.style.maxHeight = '';
+        this.template.more.textContent = '[more]';
+        this.expanded = false;
         this.data.comment = comment;
         if (comment.website) {
             const link = document.createElement('a');
-            link.textContent = comment.name;
+            link.textContent = comment.name || 'Anonymous';
             link.href = comment.website;
             this.template.author.innerHTML = '';
             this.template.author.appendChild(link);
         } else {
-            this.template.author.textContent = comment.name;
+            this.template.author.textContent = comment.name || 'Anonynous';
+        }
+        if (comment.name) {
+            this.template.author.style.fontStyle = '';
+        } else {
+            this.template.author.style.fontStyle = 'italic';
         }
         if (comment.email) {
             this.template.email.style.display = '';
@@ -289,6 +302,12 @@ class CommentRow {
             this.template.email.style.display = 'none';
         }
         this.template.content.textContent = comment.markdown;
+        this.template.content.innerHTML = comment.html;
+        if (this.template.content.getBoundingClientRect().height < this.template.content.scrollHeight) {
+            this.template.more.style.display = '';
+        } else {
+            this.template.more.style.display = 'none';
+        }
     }
 
     closeEdit() {
@@ -325,22 +344,30 @@ class CommentRow {
     }
 }
 
-const commentFormTemplate = `<form>
+const commentFormTemplate = `<form class="margin-top">
     <div class="field">
-        <label>Name</label>
-        <input type="text" data-bind="name"/>
+        <label>
+            Name
+            <input type="text" data-bind="name"/>
+        </label>
     </div>
     <div class="field">
-        <label>Email</label>
-        <input type="text" data-bind="email"/>
+        <label>
+            Email
+            <input type="text" data-bind="email"/>
+        </label>
     </div>
     <div class="field">
-        <label>Website</label>
-        <input type="text" data-bind="website"/>
+        <label>
+            Website
+            <input type="text" data-bind="website"/>
+        </label>
     </div>
     <div class="field">
-        <label>Content</label>
-        <textarea data-bind="content" rows=6></textarea>
+        <label>
+            Content
+            <textarea data-bind="content" rows=6></textarea>
+        </label>
     </div>
     <div class="flex-row space-between">
         <button data-bind="cancel" type="button">Cancel</button>

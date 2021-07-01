@@ -224,6 +224,11 @@ textarea {
         display: block;
         margin-bottom: 0.5rem;
         font-weight: bold;
+
+        & > input,
+        & > textarea  {
+            margin-top: 0.5rem;
+        }
     }
 }
 
@@ -315,6 +320,10 @@ button,
         display: flex;
         justify-content: space-between;
         align-items: center;
+
+        & > :last-child {
+            margin-left: 1rem;
+        }
     }
 }
 
@@ -338,11 +347,17 @@ button,
     }
 
     .comment-body {
-        margin: 0.5rem 0;
+        margin-top: 0.5rem;
+        max-height: 2.5rem;
+        line-height: 1.25rem;
+        overflow: hidden;
+        transition: max-height 0.3s;
     }
 
     .comment-actions {
         display: flex;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
 
         & > * + * {
             margin-left: 0.5em;
