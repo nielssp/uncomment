@@ -28,6 +28,10 @@ export class ChangePassword implements Page {
         this.template.root.style.display = 'none';
     }
 
+    get args() {
+        return {};
+    }
+
     async submit(e: Event) {
         e.preventDefault();
         if (this.template.form.newPassword.value !== this.template.form.confirmPassword.value) {

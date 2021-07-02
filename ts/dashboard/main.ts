@@ -15,7 +15,7 @@ const auth = new Auth(api);
 
 const router = new Router({
     '': router => createComponent(Login, document.getElementById('login')!, {auth, router}),
-    'comments': () => createComponent(Comments, document.getElementById('comments')!, {api}),
+    'comments': router => createComponent(Comments, document.getElementById('comments')!, {api, router}),
     'change-password': router => createComponent(ChangePassword, document.getElementById('change-password')!,
         {api, router}),
 });
@@ -24,7 +24,9 @@ createComponent(Menu, document.getElementById('menu')!, {auth, router});
 
 auth.loggedIn.then(loggedIn => {
     if (loggedIn) {
-        router.navigate(['comments']);
+        if (!router.restore()) {
+            router.navigate(['comments']);
+        }
     } else {
         router.navigate([]);
     }

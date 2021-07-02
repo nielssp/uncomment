@@ -1,7 +1,7 @@
 import { language } from "../languages/default";
 import { getRelative } from "../util";
 import { Api, ApiPage } from "./api";
-import { Page } from "./router";
+import { Page, Router } from "./router";
 import { appendComponent } from "./util";
 
 export type CommentStatus = 'Pending' | 'Approved' | 'Rejected';
@@ -56,6 +56,7 @@ export class Comments implements Page {
         },
         private services: {
             api: Api,
+            router: Router,
         },
     ) {
         template.filterPending.onclick = () => this.applyFilter({type: 'status', value: 'Pending'});
@@ -73,11 +74,10 @@ export class Comments implements Page {
         this.template.filterRejected.disabled = true;
         this.offset = 0;
         this.filter = filter;
+        this.pushState();
         try {
             await this.fetchComments();
-            this.template.filterPending.setAttribute('aria-pressed', `${this.filter.value === 'Pending'}`);
-            this.template.filterApproved.setAttribute('aria-pressed', `${this.filter.value === 'Approved'}`);
-            this.template.filterRejected.setAttribute('aria-pressed', `${this.filter.value === 'Rejected'}`);
+            this.updateButtons();
         } finally {
             this.template.filterPending.disabled = false;
             this.template.filterApproved.disabled = false;
@@ -85,13 +85,51 @@ export class Comments implements Page {
         }
     }
 
-    enter(): void {
+    enter(args: {offset: string, asc: string, filterType: string, filterValue: string}): void {
         this.template.root.style.display = '';
+        if ('offset' in args) {
+            this.offset = parseInt(args.offset, 10);
+        }
+        if ('asc' in args) {
+            this.asc = args.asc === 'true';
+        }
+        if (args.filterType && args.filterValue) {
+            switch (args.filterType) {
+                case 'status':
+                    this.filter = {type: args.filterType, value: args.filterValue as CommentStatus};
+                    break;
+                case 'parent_id':
+                case 'id':
+                    this.filter = {type: args.filterType, value: parseInt(args.filterValue, 10)};
+                    break;
+            }
+        }
+        this.updateButtons();
         this.fetchComments();
+    }
+
+    get args() {
+        return {
+            offset: '' + this.offset,
+            asc: '' + this.asc,
+            filterType: this.filter.type,
+            filterValue: '' + this.filter.value,
+        };
+    }
+
+    pushState() {
+        this.services.router.pushState(['comments'], this.args);
     }
 
     leave(): void {
         this.template.root.style.display = 'none';
+    }
+
+    updateButtons(): void {
+        this.template.filterPending.setAttribute('aria-pressed', `${this.filter.value === 'Pending'}`);
+        this.template.filterApproved.setAttribute('aria-pressed', `${this.filter.value === 'Approved'}`);
+        this.template.filterRejected.setAttribute('aria-pressed', `${this.filter.value === 'Rejected'}`);
+        this.template.sort.textContent = this.asc ? 'Date \u2191' : 'Date \u2193';
     }
 
     async fetchComments() {
@@ -135,6 +173,7 @@ export class Comments implements Page {
 
     async sort() {
         this.asc = !this.asc;
+        this.pushState();
         this.template.sort.disabled = true;
         this.template.sort.textContent = this.asc ? 'Date \u2191' : 'Date \u2193';
         try {
@@ -149,6 +188,7 @@ export class Comments implements Page {
             return;
         }
         this.offset += this.comments.limit;
+        this.pushState();
         await this.fetchComments();
         const clientRect = this.template.root.getBoundingClientRect();
         if (clientRect.top < 0) {
@@ -161,6 +201,7 @@ export class Comments implements Page {
             return;
         }
         this.offset = Math.max(0, this.offset - this.comments.limit);
+        this.pushState();
         await this.fetchComments();
     }
 }

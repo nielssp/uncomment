@@ -27,6 +27,10 @@ export class Login implements Page {
         this.template.root.style.display = 'none';
     }
 
+    get args() {
+        return {};
+    }
+
     async submit(e: Event) {
         e.preventDefault();
         this.template.submit.disabled = true;
