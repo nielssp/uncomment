@@ -59,10 +59,13 @@ async fn post_comment(
     settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
     let ip = request.peer_addr().map(|a| a.ip().to_string()).unwrap_or("".to_owned());
-    let count = repo.count_comments_by_ip(&ip, Local::now() - Duration::minutes(10))?;
-    info!("{} comments", count);
-    if count >= 10 {
-        Err(error::ErrorTooManyRequests("TOO_MANY_COMMENTS"))?;
+    if settings.rate_limit > 0 {
+        let count = repo.count_comments_by_ip(&ip, Local::now() - Duration::minutes(settings.rate_limit_interval))?;
+        info!("rate limit: {} / {} comments in the past {} minutes", count, settings.rate_limit,
+            settings.rate_limit_interval);
+        if count >= settings.rate_limit {
+            Err(error::ErrorTooManyRequests("TOO_MANY_COMMENTS"))?;
+        }
     }
     let thread = match repo.get_thread(&query.t)? {
         Some(t) => Ok(t),

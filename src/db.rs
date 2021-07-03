@@ -342,11 +342,11 @@ impl Repo {
         }
     }
 
-    pub fn count_comments_by_ip(&self, ip: &str, since: DateTime<Local>) -> Result<usize, RepoError> {
+    pub fn count_comments_by_ip(&self, ip: &str, since: DateTime<Local>) -> Result<i64, RepoError> {
         match self {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
-                let count: usize = conn.query_row("select count(*) from comments where ip = ? and created >= ?",
+                let count: i64 = conn.query_row("select count(*) from comments where ip = ? and created >= ?",
                     params![ip, since.to_rfc3339()], |row| row.get(0))?;
                 Ok(count)
             },
