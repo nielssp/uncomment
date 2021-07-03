@@ -10,6 +10,11 @@ export const language = {
     reply: 'Reply',
     cancel: 'Cancel',
     anonymous: 'Anonymous',
+    missingContentError: 'Comment cannot be empty',
+    missingNameError: 'Anonymous comments are not allowed',
+    missingEmailError: 'An email is required',
+    tooManyCommentsError: 'Too many comments',
+    unknownError: 'An unknown error occurred',
     date: (d: Date) => {
         return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${d.getHours()}:${(d.getMinutes() < 10 ? '0' : '') + d.getMinutes()}`;
     },

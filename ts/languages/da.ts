@@ -10,6 +10,11 @@ export const language = {
     reply: 'Svar',
     cancel: 'Annullér',
     anonymous: 'Anonym',
+    missingContentError: 'Kommentar kan ikke være tom',
+    missingNameError: 'Anonyme kommentarer er ikke tilladt',
+    missingEmailError: 'En email er nødvendig',
+    tooManyCommentsError: 'For mange kommentarer',
+    unknownError: 'Der opstod en ukendt fejl',
     date: (d: Date) => {
         return `${d.getDate()}. ${months[d.getMonth()]} ${d.getFullYear()} ${d.getHours()}:${(d.getMinutes() < 10 ? '0' : '') + d.getMinutes()}`;
     },

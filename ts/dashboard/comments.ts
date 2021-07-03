@@ -1,3 +1,8 @@
+/* Copyright (c) 2021 Niels Sonnich Poulsen (http://nielssp.dk)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 import { language } from "../languages/default";
 import { getRelative } from "../util";
 import { Api, ApiPage } from "./api";
@@ -14,6 +19,7 @@ export interface Comment {
     status: CommentStatus;
     name: string;
     email: string;
+    ip: string;
     website: string;
     markdown: string;
     html: string;
@@ -213,6 +219,7 @@ const commentTemplate = `<div class="box-row flex-column stretch">
             <div class="comment-header">
                 <span class="author" data-bind="author"></span>
                 <span class="email" data-bind="email"></span>
+                <span class="ip" data-bind="ip"></span>
                 <time data-bind="created"></time>
             </div>
             <div class="comment-body" data-bind="content"></div>
@@ -242,6 +249,7 @@ class CommentRow {
             comment: HTMLElement,
             author: HTMLElement,
             email: HTMLElement,
+            ip: HTMLElement,
             created: HTMLTimeElement,
             content: HTMLElement,
             more: HTMLLinkElement,
@@ -341,6 +349,12 @@ class CommentRow {
             this.template.email.textContent = comment.email;
         } else {
             this.template.email.style.display = 'none';
+        }
+        if (comment.ip) {
+            this.template.ip.style.display = '';
+            this.template.ip.textContent = comment.ip;
+        } else {
+            this.template.ip.style.display = 'none';
         }
         this.template.content.textContent = comment.markdown;
         this.template.content.innerHTML = comment.html;

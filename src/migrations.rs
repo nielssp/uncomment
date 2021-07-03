@@ -1,4 +1,9 @@
-// Minimal migration system
+/* Copyright (c) 2021 Niels Sonnich Poulsen (http://nielssp.dk)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! Minimal migration system
 
 pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])] = &[
     ("V1_Init", &[
@@ -21,6 +26,7 @@ pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])]
          name text(100) not null,
          email text(100) not null,
          website text(100) not null,
+         ip text(100) not null,
          html text not null,
          markdown text not null,
          status text(50) not null,

@@ -1,4 +1,11 @@
-use actix_web::{HttpMessage, HttpResponse, cookie::Cookie, delete, error, get, put, post, web};
+/* Copyright (c) 2021 Niels Sonnich Poulsen (http://nielssp.dk)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! Uncomment dashboard API
+
+use actix_web::{HttpResponse, delete, error, get, put, post, web};
 use pulldown_cmark::Parser;
 
 use crate::{auth, db::{CommentFilter, CommentStatus, Repo, UpdateComment}};
@@ -79,8 +86,9 @@ async fn delete_comment(
     repo: web::Data<Repo>,
     web::Path(id): web::Path<i64>,
 ) -> actix_web::Result<HttpResponse> {
-    let session = auth::validate_admin_session(request, &repo)?;
-    Err(error::ErrorNotImplemented("not implemented"))
+    auth::validate_admin_session(request, &repo)?;
+    repo.delete_comment(id)?;
+    Ok(HttpResponse::NoContent().body(""))
 }
 
 pub fn config(cfg: &mut web::ServiceConfig) {

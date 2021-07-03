@@ -1,4 +1,9 @@
-use std::env;
+/* Copyright (c) 2021 Niels Sonnich Poulsen (http://nielssp.dk)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! Uncomment authentication handling
 
 use actix_web::{HttpMessage, HttpResponse, cookie::Cookie, delete, error, get, post, put, web};
 use argonautica::{Hasher, Verifier};
@@ -6,7 +11,7 @@ use chrono::{Duration, Local};
 use log::{info, error};
 use serde::{Deserialize, Serialize};
 
-use crate::db::{NewUser, Repo, Session, User};
+use crate::{db::{NewUser, Repo, Session, User}, settings::Settings};
 
 #[derive(Debug, Deserialize)]
 pub struct Credentials {
@@ -83,16 +88,9 @@ pub fn generate_session_id() -> String {
     base64::encode(bytes)
 }
 
-pub fn get_secret_key() -> actix_web::Result<String> {
-    env::var("UNCOMMENT_SECRET_KEY")
-        .map_err(|_| {
-            error::ErrorInternalServerError("missing secret key")
-        })
-}
-
-pub fn hash_password(password: &str) -> actix_web::Result<String> {
+pub fn hash_password(password: &str, settings: &Settings) -> actix_web::Result<String> {
     Hasher::default()
-        .with_secret_key(get_secret_key()?)
+        .with_secret_key(&settings.secret_key)
         .with_password(password)
         .hash()
         .map_err(|e| {
@@ -101,9 +99,9 @@ pub fn hash_password(password: &str) -> actix_web::Result<String> {
         })
 }
 
-pub fn verify_password(hash: &str, password: &str) -> actix_web::Result<bool> {
+pub fn verify_password(hash: &str, password: &str, settings: &Settings) -> actix_web::Result<bool> {
     Verifier::default()
-        .with_secret_key(get_secret_key()?)
+        .with_secret_key(&settings.secret_key)
         .with_hash(hash)
         .with_password(password)
         .verify()
@@ -125,14 +123,15 @@ async fn get_auth(
 #[post("/auth")]
 async fn create_auth(
     data: web::Json<Credentials>,
-    repo: web::Data<Repo>
+    repo: web::Data<Repo>,
+    settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
     let user = repo.get_user(&data.username)?
         .ok_or_else(|| {
             info!("user not found: {}", data.username);
             error::ErrorBadRequest("invalid credentials")
         })?;
-    if verify_password(&user.password, &data.password)? {
+    if verify_password(&user.password, &data.password, &settings)? {
         let session_id = generate_session_id();
         repo.create_session(&session_id, Local::now() + Duration::hours(1), user.id)?;
         Ok(HttpResponse::Ok()
@@ -162,10 +161,11 @@ async fn update_password(
     request: web::HttpRequest,
     repo: web::Data<Repo>,
     data: web::Json<UpdatePassword>,
+    settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
     let session = validate_session(request, &repo)?;
-    if verify_password(&session.user.password, &data.existing_password)? {
-        repo.change_password(session.user.id, &hash_password(&data.new_password)?)?;
+    if verify_password(&session.user.password, &data.existing_password, &settings)? {
+        repo.change_password(session.user.id, &hash_password(&data.new_password, &settings)?)?;
         Ok(HttpResponse::NoContent().body(""))
     } else {
         Err(error::ErrorBadRequest("invalid password"))
@@ -179,10 +179,10 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(update_password);
 }
 
-pub fn install(repo: &Repo) -> actix_web::Result<()> {
-    if let (Ok(username), Ok(password)) = (
-        env::var("UNCOMMENT_DEFAULT_ADMIN_USERNAME"),
-        env::var("UNCOMMENT_DEFAULT_ADMIN_PASSWORD"),
+pub fn install(repo: &Repo, settings: &Settings) -> actix_web::Result<()> {
+    if let (Some(username), Some(password)) = (
+        settings.default_admin_username.as_ref(),
+        settings.default_admin_password.as_ref(),
     ) {
         if repo.admin_exists()? {
             return Ok(());
@@ -190,8 +190,8 @@ pub fn install(repo: &Repo) -> actix_web::Result<()> {
         info!("Creating default admin user");
         repo.create_user(NewUser {
             username: username.clone(),
-            password: hash_password(&password)?,
-            name: username,
+            password: hash_password(password, &settings)?,
+            name: username.clone(),
             email: "".to_owned(),
             website: "".to_owned(),
             trusted: true,

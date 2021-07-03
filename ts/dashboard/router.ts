@@ -1,3 +1,8 @@
+/* Copyright (c) 2021 Niels Sonnich Poulsen (http://nielssp.dk)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 export interface Page {
     enter(args: Record<string, string>): void;
     leave(): void;

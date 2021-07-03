@@ -1,8 +1,15 @@
+/* Copyright (c) 2021 Niels Sonnich Poulsen (http://nielssp.dk)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! Uncomment database abstraction
+
 use std::{collections::{HashMap, HashSet}, fmt};
 
 use chrono::{DateTime, FixedOffset, Local};
 use log::info;
-use rusqlite::{OptionalExtension, ToSql, named_params, params, params_from_iter, types::{FromSql, FromSqlError, FromSqlResult, ValueRef}};
+use rusqlite::{OptionalExtension, named_params, params, types::{FromSql, FromSqlError, FromSqlResult, ValueRef}};
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
 
@@ -15,7 +22,7 @@ pub struct Thread {
     pub title: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq)]
 pub enum CommentStatus {
     Pending,
     Approved,
@@ -60,6 +67,7 @@ pub struct CommentPosition {
     pub level4_id: Option<i64>,
     pub level5_id: Option<i64>,
     pub level6_id: Option<i64>,
+    pub status: CommentStatus,
 }
 
 #[derive(Serialize)]
@@ -72,6 +80,7 @@ pub struct PrivateComment {
     pub name: String,
     pub email: String,
     pub website: String,
+    pub ip: String,
     pub markdown: String,
     pub html: String,
     pub created: String,
@@ -88,8 +97,10 @@ pub struct NewComment {
     pub name: String,
     pub email: String,
     pub website: String,
+    pub ip: String,
     pub html: String,
     pub markdown: String,
+    pub status: CommentStatus,
 }
 
 pub struct UpdateComment {
@@ -279,7 +290,7 @@ impl Repo {
             Repo::SqliteRepo(pool) => {
                 let conn = pool.get()?;
                 conn.query_row("select c.id, c.thread_id, c.level1_id, c.level2_id, c.level3_id, c.level4_id, \
-                    c.level5_id, c.level6_id \
+                    c.level5_id, c.level6_id, c.status \
                     from comments c \
                     where c.id = ?", [id], |row| {
                     Ok(CommentPosition {
@@ -291,6 +302,7 @@ impl Repo {
                         level4_id: row.get(5)?,
                         level5_id: row.get(6)?,
                         level6_id: row.get(7)?,
+                        status: row.get(8)?,
                     })
                 }).optional().map_err(|e| e.into())
             },
@@ -330,6 +342,17 @@ impl Repo {
         }
     }
 
+    pub fn count_comments_by_ip(&self, ip: &str, since: DateTime<Local>) -> Result<usize, RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                let count: usize = conn.query_row("select count(*) from comments where ip = ? and created >= ?",
+                    params![ip, since.to_rfc3339()], |row| row.get(0))?;
+                Ok(count)
+            },
+        }
+    }
+
     pub fn post_comment(
         &self,
         thread_id: i64,
@@ -342,17 +365,20 @@ impl Repo {
                 let conn = pool.get()?;
                 let parent_id = parent.map(|p| p.level6_id.unwrap_or(p.id));
                 let mut insert = conn.prepare(
-                    "insert into comments (thread_id, parent_id, name, email, website, html, markdown, status, created) \
-                    values (:thread_id, :parent_id, :name, :email, :website, :html, :markdown, :status, :created)")?;
+                    "insert into comments \
+                    (thread_id, parent_id, name, email, website, ip, html, markdown, status, created) \
+                    values \
+                    (:thread_id, :parent_id, :name, :email, :website, :ip, :html, :markdown, :status, :created)")?;
                 let id = insert.insert(named_params! {
                     ":thread_id": thread_id,
                     ":parent_id": parent_id,
                     ":name": data.name,
                     ":email": &data.email,
                     ":website": &data.website,
+                    ":ip": &data.ip,
                     ":html": &data.html,
                     ":markdown": &data.markdown,
-                    ":status": CommentStatus::Approved.to_string(),
+                    ":status": data.status.to_string(),
                     ":created": now.to_rfc3339(),
                 })?;
                 let level1 = parent.map(|p| p.level1_id).flatten().unwrap_or(id);
@@ -522,14 +548,14 @@ impl Repo {
 
     fn query_comments<P: rusqlite::Params>(conn: &rusqlite::Connection, partial_sql: &str, params: P) -> Result<Vec<PrivateComment>, RepoError> {
         let mut select = conn.prepare(&format!("select c.id, c.thread_id, t.name, c.parent_id, c.status, \
-            c.name, c.email, c.website, c.markdown, c.html, c.created, \
+            c.name, c.email, c.website, c.ip, c.markdown, c.html, c.created, \
             (select count(*) from comments where parent_id = c.id) as replies \
             from comments c \
             inner join threads t on t.id = c.thread_id {}", partial_sql))?;
         let mut rows = select.query(params)?;
         let mut content = Vec::new();
         while let Some(row) = rows.next()? {
-            let created_string: String = row.get(10)?;
+            let created_string: String = row.get(11)?;
             let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
             content.push(PrivateComment {
                 id: row.get(0)?,
@@ -540,11 +566,12 @@ impl Repo {
                 name: row.get(5)?,
                 email: row.get(6)?,
                 website: row.get(7)?,
-                markdown: row.get(8)?,
-                html: row.get(9)?,
+                ip: row.get(8)?,
+                markdown: row.get(9)?,
+                html: row.get(10)?,
                 created: created.to_rfc3339(),
                 created_timestamp: created.timestamp(),
-                replies: row.get(11)?,
+                replies: row.get(12)?,
             });
         }
         Ok(content)
@@ -605,6 +632,16 @@ impl Repo {
                         ":status": data.status.to_string(),
                         ":id": id,
                     })?;
+                Ok(())
+            },
+        }
+    }
+
+    pub fn delete_comment(&self, id: i64) -> Result<(), RepoError> {
+        match self {
+            Repo::SqliteRepo(pool) => {
+                let conn = pool.get()?;
+                conn.execute("delete comments where id = ?", [id])?;
                 Ok(())
             },
         }

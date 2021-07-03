@@ -71,6 +71,23 @@ async function postComment(config: Config, data: NewComment, parentId?: number):
         body: JSON.stringify(data),
     });
     if (!response.ok) {
+        switch (await response.text()) {
+            case 'MISSING_CONTENT':
+                alert(language.missingContentError);
+                break;
+            case 'MISSING_NAME':
+                alert(language.missingNameError);
+                break;
+            case 'MISSING_EMAIL':
+                alert(language.missingEmailError);
+                break;
+            case 'TOO_MANY_COMMENTS':
+                alert(language.tooManyCommentsError);
+                break;
+            default:
+                alert(language.unknownError);
+                break;
+        }
         throw new Error();
     }
     return response.json();
