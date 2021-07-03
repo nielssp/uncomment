@@ -2,7 +2,7 @@ import { language } from './languages/default';
 import { getRelative } from './util';
 
 const mainTemplate = '<form data-bind="newCommentForm"></form><div class="comments" data-bind="comments"></div>';
-const formTemplate = `<input type="text" name="name" placeholder="${language.name}"/><input type="email" name="email" placeholder="${language.email}"/><input type="string" name="website" placeholder="${language.website}"/><br/><textarea name="content" placeholder="${language.comment}"></textarea><br/><button type="submit">${language.submit}</button>`;
+const formTemplate = `<input type="text" name="name" data-bind="name" placeholder="${language.name}"/><input type="email" name="email" data-bind="email" placeholder="${language.email}"/><input type="url" name="website" data-bind="website" placeholder="${language.website}"/><br/><textarea name="content" data-bind="content" placeholder="${language.comment}" required></textarea><br/><button type="submit">${language.submit}</button>`;
 const commentTemplate = `<div class="comment" data-bind="comment"><div class="comment-header"><span class="author" data-bind="author"></span><time data-bind="created"></time></div><div class="comment-body" data-bind="content"></div><div class="comment-actions"><a href="#" data-bind="replyLink">${language.reply}</a></div><form data-bind="replyForm"></form><div class="replies" data-bind="replies"></div></div>`;
 
 function applyTemplate<T extends {}>(target: Element, template: string): T {
@@ -21,6 +21,10 @@ interface MainTemplate {
 }
 
 interface FormTemplate {
+    name: HTMLInputElement;
+    email: HTMLInputElement;
+    website: HTMLInputElement;
+    content: HTMLTextAreaElement;
 }
 
 interface CommentTemplate {
@@ -39,6 +43,8 @@ interface Config {
     id: string;
     relativeDates: boolean;
     newestFirst: boolean;
+    requireName: boolean;
+    requireEmail: boolean;
 }
 
 interface Comment {
@@ -93,6 +99,28 @@ async function postComment(config: Config, data: NewComment, parentId?: number):
     return response.json();
 }
 
+function createCommentForm(
+    config: Config,
+    form: HTMLFormElement,
+    parentId: number|undefined,
+    onSuccess: (comment: Comment, template: FormTemplate) => void,
+) {
+    const template: FormTemplate = applyTemplate(form, formTemplate);
+    template.name.required = config.requireName;
+    template.email.required = config.requireEmail;
+    form.onsubmit = async e => {
+        e.preventDefault();
+        console.log(template);
+        const comment = await postComment(config, {
+            name: template.name.value,
+            email: template.email.value,
+            website: template.website.value,
+            content: template.content.value,
+        }, parentId);
+        onSuccess(comment, template);
+    };
+}
+
 function addCommentToContainer(config: Config, container: Element, comment: Comment) {
     const temp = document.createElement('div');
     const template = applyTemplate<CommentTemplate>(temp, commentTemplate);
@@ -120,31 +148,23 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
     template.created.dateTime = created.toISOString();
     template.content.innerHTML = comment.html;
     let replyFormOpen = false;
-    template.replyLink.addEventListener('click', e => {
+    template.replyLink.onclick = e => {
         e.preventDefault();
         if (replyFormOpen) {
             template.replyForm.innerHTML = '';
             replyFormOpen = false;
             template.replyLink.textContent = language.reply;
         } else {
-            applyTemplate(template.replyForm, formTemplate);
+            createCommentForm(config, template.replyForm, comment.id, reply => {
+                addCommentToContainer(config, template.replies, reply);
+                template.replyForm.innerHTML = '';
+                replyFormOpen = false;
+                template.replyLink.textContent = language.reply;
+            });
             replyFormOpen = true;
             template.replyLink.textContent = language.cancel;
         }
-    });
-    template.replyForm.addEventListener('submit', async e => {
-        e.preventDefault();
-        const reply = await postComment(config, {
-            name: (template.replyForm.name as any).value,
-            email: template.replyForm.email.value,
-            website: template.replyForm.website.value,
-            content: template.replyForm.content.value,
-        }, comment.id);
-        addCommentToContainer(config, template.replies, reply);
-        template.replyForm.innerHTML = '';
-        replyFormOpen = false;
-        template.replyLink.textContent = language.reply;
-    });
+    };
     comment.replies.forEach(reply => addCommentToContainer(config, template.replies, reply));
     for (let i = 0; i < temp.children.length; i++) {
         container.appendChild(temp.children[i]);
@@ -166,16 +186,8 @@ async function loadComments(config: Config, container: Element) {
 function load(config: Config) {
     config.target.classList.add('uncomment');
     const main = applyTemplate<MainTemplate>(config.target, mainTemplate);
-    applyTemplate<FormTemplate>(main.newCommentForm, formTemplate);
-    main.newCommentForm.addEventListener('submit', async e => {
-        e.preventDefault();
-        const comment = await postComment(config, {
-            name: (main.newCommentForm.name as any).value,
-            email: main.newCommentForm.email.value,
-            website: main.newCommentForm.website.value,
-            content: main.newCommentForm.content.value,
-        });
-        main.newCommentForm.content.value = '';
+    createCommentForm(config, main.newCommentForm, undefined, (comment, template) => {
+        template.content.value = '';
         addCommentToContainer(config, main.comments, comment);
     });
     loadComments(config, main.comments);
@@ -205,6 +217,8 @@ function initFromScriptTag() {
         id: script.getAttribute('data-uncomment-id') || location.pathname,
         relativeDates: script.getAttribute('data-uncomment-relative-dates') !== 'false',
         newestFirst: script.getAttribute('data-uncomment-newest-first') === 'true',
+        requireName: script.getAttribute('data-uncomment-require-name') === 'true',
+        requireEmail: script.getAttribute('data-uncomment-require-email') === 'true',
     };
     load(config);
 }
