@@ -11,10 +11,17 @@ export interface ApiPage<T> {
 }
 
 export class Api {
+    private listeners: ((response: Response) => void)[] = [];
+
     constructor(private baseUrl: string) {
     }
 
+    addResponseListener(listener: (response: Response) => void) {
+        this.listeners.push(listener);
+    }
+
     async handleError(response: Response) {
+        this.listeners.forEach(l => l(response));
         if (response.ok) {
             return;
         }

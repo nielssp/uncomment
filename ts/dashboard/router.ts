@@ -59,7 +59,7 @@ export class Router {
     restore() {
         if (window.location.hash) {
             const {path, args} = stringToPath(window.location.hash.replace(/^#/, ''));
-            return this.open(path, args);
+            return !!this.open(path, args);
         }
         return false;
     }

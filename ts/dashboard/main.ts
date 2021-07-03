@@ -22,12 +22,19 @@ const router = new Router({
 
 createComponent(Menu, document.getElementById('menu')!, {auth, router});
 
+api.addResponseListener(response => {
+    if (response.status === 401) {
+        auth.reset();
+        router.open([]);
+    }
+});
+
 auth.loggedIn.then(loggedIn => {
     if (loggedIn) {
         if (!router.restore()) {
             router.navigate(['comments']);
         }
     } else {
-        router.navigate([]);
+        router.open([]);
     }
 })

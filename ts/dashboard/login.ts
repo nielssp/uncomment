@@ -40,7 +40,9 @@ export class Login implements Page {
                 username: this.template.form.username.value,
                 password: this.template.form.password.value,
             });
-            this.services.router.navigate(['comments']);
+            if (!this.services.router.restore()) {
+                this.services.router.navigate(['comments']);
+            }
         } catch (error) {
             this.template.info.style.display = '';
         } finally {
