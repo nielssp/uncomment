@@ -10,6 +10,8 @@ export const language = {
     reply: 'Reply',
     cancel: 'Cancel',
     anonymous: 'Anonymous',
+    loadComments: 'Load comments',
+    commentLoadError: 'Comments failed to load',
     missingContentError: 'Comment cannot be empty',
     missingNameError: 'Anonymous comments are not allowed',
     missingEmailError: 'An email is required',

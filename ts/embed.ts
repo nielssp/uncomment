@@ -45,6 +45,7 @@ interface Config {
     newestFirst: boolean;
     requireName: boolean;
     requireEmail: boolean;
+    clickToLoad: boolean;
 }
 
 interface Comment {
@@ -172,14 +173,28 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
 }
 
 async function loadComments(config: Config, container: Element) {
-    const response = await fetch(`${config.api}/comments?t=${config.id}&newest_first=${config.newestFirst}`);
-    if (!response.ok) {
-        // TODO: error message
-        return;
-    }
-    const comments: Comment[] = await response.json();
-    for (let comment of comments) {
-        addCommentToContainer(config, container, comment);
+    try {
+        const response = await fetch(`${config.api}/comments?t=${config.id}&newest_first=${config.newestFirst}`);
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+        const comments: Comment[] = await response.json();
+        for (let comment of comments) {
+            addCommentToContainer(config, container, comment);
+        }
+    } catch (error) {
+        console.error('Unable to fetch comments', error);
+        const description = document.createElement('div');
+        description.className = 'uncomment-error';
+        description.textContent = language.commentLoadError;
+        container.appendChild(description);
+        const retry = document.createElement('button');
+        retry.textContent = language.loadComments;
+        container.appendChild(retry);
+        retry.onclick = () => {
+            container.innerHTML = '';
+            loadComments(config, container);
+        };
     }
 }
 
@@ -190,7 +205,17 @@ function load(config: Config) {
         template.content.value = '';
         addCommentToContainer(config, main.comments, comment);
     });
-    loadComments(config, main.comments);
+    if (config.clickToLoad) {
+        const button = document.createElement('button');
+        button.textContent = language.loadComments;
+        main.comments.appendChild(button);
+        button.onclick = () => {
+            main.comments.innerHTML = '';
+            loadComments(config, main.comments);
+        };
+    } else {
+        loadComments(config, main.comments);
+    }
 }
 
 function initFromScriptTag() {
@@ -219,6 +244,7 @@ function initFromScriptTag() {
         newestFirst: script.getAttribute('data-uncomment-newest-first') === 'true',
         requireName: script.getAttribute('data-uncomment-require-name') === 'true',
         requireEmail: script.getAttribute('data-uncomment-require-email') === 'true',
+        clickToLoad: script.getAttribute('data-uncomment-click-to-load') === 'true',
     };
     load(config);
 }
