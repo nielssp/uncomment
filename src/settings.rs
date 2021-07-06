@@ -12,6 +12,8 @@ pub struct Settings {
     pub listen: String,
     pub sqlite_database: String,
     pub secret_key: String,
+    pub argon2_iterations: u32,
+    pub argon2_memory_size: u32,
     pub rate_limit: i64,
     pub rate_limit_interval: i64,
     pub auto_threads: bool,
@@ -27,6 +29,8 @@ impl Settings {
         let mut s = Config::default();
         s.set_default("listen", "127.0.0.1:5000")?;
         s.set_default("sqlite_database", "data.db")?;
+        s.set_default("argon2_iterations", 192)?;
+        s.set_default("argon2_memory_size", 4096)?;
         s.set_default("rate_limit", 10)?;
         s.set_default("rate_limit_interval", 10)?;
         s.set_default("auto_threads", true)?;

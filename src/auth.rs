@@ -90,6 +90,8 @@ pub fn generate_session_id() -> String {
 
 pub fn hash_password(password: &str, settings: &Settings) -> actix_web::Result<String> {
     Hasher::default()
+        .configure_iterations(settings.argon2_iterations)
+        .configure_memory_size(settings.argon2_memory_size)
         .with_secret_key(&settings.secret_key)
         .with_password(password)
         .hash()
