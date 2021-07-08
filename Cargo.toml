@@ -28,9 +28,7 @@ pulldown-cmark = "0.8"
 ammonia = "3"
 
 # Database
-r2d2 = "0.8"
-r2d2_sqlite = "0.18"
-rusqlite = "0.25"
+quaint = { version = "0.1", features = ["sqlite", "pooled", "chrono"] }
 
 # Auth
 argonautica = "0.2"

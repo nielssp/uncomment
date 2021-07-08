@@ -122,7 +122,7 @@ function createCommentForm(
     };
 }
 
-function addCommentToContainer(config: Config, container: Element, comment: Comment) {
+function addCommentToContainer(config: Config, container: Element, comment: Comment, atStart = false) {
     const temp = document.createElement('div');
     const template = applyTemplate<CommentTemplate>(temp, commentTemplate);
     template.comment.id = `comment-${comment.id}`;
@@ -157,7 +157,7 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
             template.replyLink.textContent = language.reply;
         } else {
             createCommentForm(config, template.replyForm, comment.id, reply => {
-                addCommentToContainer(config, template.replies, reply);
+                addCommentToContainer(config, template.replies, reply, config.newestFirst);
                 template.replyForm.innerHTML = '';
                 replyFormOpen = false;
                 template.replyLink.textContent = language.reply;
@@ -167,8 +167,10 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
         }
     };
     comment.replies.forEach(reply => addCommentToContainer(config, template.replies, reply));
-    for (let i = 0; i < temp.children.length; i++) {
-        container.appendChild(temp.children[i]);
+    if (atStart && container.children.length) {
+        container.insertBefore(temp.children[0], container.children[0]);
+    } else {
+        container.appendChild(temp.children[0]);
     }
 }
 
@@ -203,7 +205,7 @@ function load(config: Config) {
     const main = applyTemplate<MainTemplate>(config.target, mainTemplate);
     createCommentForm(config, main.newCommentForm, undefined, (comment, template) => {
         template.content.value = '';
-        addCommentToContainer(config, main.comments, comment);
+        addCommentToContainer(config, main.comments, comment, config.newestFirst);
     });
     if (config.clickToLoad) {
         const button = document.createElement('button');

@@ -8,10 +8,10 @@
 use actix_web::{HttpMessage, HttpResponse, cookie::Cookie, delete, error, get, post, put, web};
 use argonautica::{Hasher, Verifier};
 use chrono::{Duration, Local};
-use log::{info, error};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 
-use crate::{db::{NewUser, Repo, Session, User}, settings::Settings};
+use crate::{db::{Pool, sessions::{self, Session}, users::{self, NewUser, User}}, settings::Settings};
 
 #[derive(Debug, Deserialize)]
 pub struct Credentials {
@@ -51,19 +51,19 @@ impl From<User> for SessionUser {
     }
 }
 
-pub fn validate_session(
+pub async fn validate_session(
     request: web::HttpRequest,
-    repo: &web::Data<Repo>,
+    pool: &web::Data<Pool>,
 ) -> actix_web::Result<Session> {
     match request.cookie("uncomment_session")    {
         Some(cookie) => {
-            let session = repo.get_session(cookie.value())?
+            let session = sessions::get_session(pool, cookie.value()).await?
                 .ok_or_else(|| error::ErrorUnauthorized("unauthorized"))?;
             if session.valid_until >= Local::now() {
                 Ok(session)
             } else {
                 info!("session expired");
-                repo.delete_session(&session.id)?;
+                sessions::delete_session(pool, &session.id).await?;
                 Err(error::ErrorUnauthorized("unauthorized"))
             }
         },
@@ -71,11 +71,11 @@ pub fn validate_session(
     }
 }
 
-pub fn validate_admin_session(
+pub async fn validate_admin_session(
     request: web::HttpRequest,
-    repo: &web::Data<Repo>,
+    pool: &web::Data<Pool>,
 ) -> actix_web::Result<Session> {
-    let session = validate_session(request, repo)?;
+    let session = validate_session(request, pool).await?;
     if session.user.admin {
         Ok(session)
     } else {
@@ -116,26 +116,26 @@ pub fn verify_password(hash: &str, password: &str, settings: &Settings) -> actix
 #[get("/auth")]
 async fn get_auth(
     request: web::HttpRequest,
-    repo: web::Data<Repo>,
+    pool: web::Data<Pool>,
 ) -> actix_web::Result<HttpResponse> {
-    let session = validate_session(request, &repo)?;
+    let session = validate_session(request, &pool).await?;
     Ok(HttpResponse::Ok().json(SessionUser::from(session.user)))
 }
 
 #[post("/auth")]
 async fn create_auth(
     data: web::Json<Credentials>,
-    repo: web::Data<Repo>,
+    pool: web::Data<Pool>,
     settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
-    let user = repo.get_user(&data.username)?
+    let user = users::get_user(&pool, &data.username).await?
         .ok_or_else(|| {
             info!("user not found: {}", data.username);
             error::ErrorBadRequest("invalid credentials")
         })?;
     if verify_password(&user.password, &data.password, &settings)? {
         let session_id = generate_session_id();
-        repo.create_session(&session_id, Local::now() + Duration::hours(1), user.id)?;
+        sessions::create_session(&pool, &session_id, Local::now() + Duration::hours(1), user.id).await?;
         Ok(HttpResponse::Ok()
             .cookie(Cookie::build("uncomment_session", session_id)
                 .max_age(time::Duration::hours(1))
@@ -151,23 +151,23 @@ async fn create_auth(
 #[delete("/auth")]
 async fn delete_auth(
     request: web::HttpRequest,
-    repo: web::Data<Repo>
+    pool: web::Data<Pool>
 ) -> actix_web::Result<HttpResponse> {
-    let session = validate_session(request, &repo)?;
-    repo.delete_session(&session.id)?;
+    let session = validate_session(request, &pool).await?;
+    sessions::delete_session(&pool, &session.id).await?;
     Ok(HttpResponse::NoContent().body(""))
 }
 
 #[put("/password")]
 async fn update_password(
     request: web::HttpRequest,
-    repo: web::Data<Repo>,
+    pool: web::Data<Pool>,
     data: web::Json<UpdatePassword>,
     settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
-    let session = validate_session(request, &repo)?;
+    let session = validate_session(request, &pool).await?;
     if verify_password(&session.user.password, &data.existing_password, &settings)? {
-        repo.change_password(session.user.id, &hash_password(&data.new_password, &settings)?)?;
+        users::change_password(&pool, session.user.id, &hash_password(&data.new_password, &settings)?).await?;
         Ok(HttpResponse::NoContent().body(""))
     } else {
         Err(error::ErrorBadRequest("invalid password"))
@@ -181,16 +181,16 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(update_password);
 }
 
-pub fn install(repo: &Repo, settings: &Settings) -> actix_web::Result<()> {
+pub async fn install(pool: &Pool, settings: &Settings) -> actix_web::Result<()> {
     if let (Some(username), Some(password)) = (
         settings.default_admin_username.as_ref(),
         settings.default_admin_password.as_ref(),
     ) {
-        if repo.admin_exists()? {
+        if users::admin_exists(pool).await? {
             return Ok(());
         }
         info!("Creating default admin user");
-        repo.create_user(NewUser {
+        users::create_user(pool, NewUser {
             username: username.clone(),
             password: hash_password(password, &settings)?,
             name: username.clone(),
@@ -198,7 +198,7 @@ pub fn install(repo: &Repo, settings: &Settings) -> actix_web::Result<()> {
             website: "".to_owned(),
             trusted: true,
             admin: true,
-        })?;
+        }).await?;
     }
     Ok(())
 }

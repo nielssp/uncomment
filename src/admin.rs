@@ -5,10 +5,10 @@
 
 //! Uncomment dashboard API
 
-use actix_web::{HttpResponse, delete, error, get, put, post, web};
+use actix_web::{HttpResponse, delete, error, get, put, web};
 use pulldown_cmark::Parser;
 
-use crate::{auth, db::{CommentFilter, CommentStatus, Repo, UpdateComment}};
+use crate::{auth, db::{Pool, comments::{self, CommentFilter, CommentStatus, UpdateComment}}};
 
 #[derive(serde::Deserialize)]
 struct CommentQuery {
@@ -30,36 +30,36 @@ struct UpdateCommentData {
 #[get("/admin/comments")]
 async fn get_comments(
     request: web::HttpRequest,
-    repo: web::Data<Repo>,
+    pool: web::Data<Pool>,
     query: web::Query<CommentQuery>,
 ) -> actix_web::Result<HttpResponse> {
-    auth::validate_admin_session(request, &repo)?;
+    auth::validate_admin_session(request, &pool).await?;
     let filter = query.parent_id.map(|id| CommentFilter::Parent(id))
         .unwrap_or_else(|| CommentFilter::Status(query.status.unwrap_or(CommentStatus::Pending)));
-    Ok(HttpResponse::Ok().json(repo.get_comments(filter,
-                query.asc.unwrap_or(false), 10, query.offset.unwrap_or(0))?))
+    Ok(HttpResponse::Ok().json(comments::get_comments(&pool, filter,
+                query.asc.unwrap_or(false), 10, query.offset.unwrap_or(0)).await?))
 }
 
 #[get("/admin/comments/{id:\\d+}")]
 async fn get_comment(
     request: web::HttpRequest,
-    repo: web::Data<Repo>,
+    pool: web::Data<Pool>,
     web::Path(id): web::Path<i64>,
 ) -> actix_web::Result<HttpResponse> {
-    auth::validate_admin_session(request, &repo)?;
-    let comment = repo.get_comment(id)?.ok_or_else(|| error::ErrorNotFound("comment not found"))?;
+    auth::validate_admin_session(request, &pool).await?;
+    let comment = comments::get_comment(&pool, id).await?.ok_or_else(|| error::ErrorNotFound("comment not found"))?;
     Ok(HttpResponse::Ok().json(comment))
 }
 
 #[put("/admin/comments/{id:\\d+}")]
 async fn update_comment(
     request: web::HttpRequest,
-    repo: web::Data<Repo>,
+    pool: web::Data<Pool>,
     web::Path(id): web::Path<i64>,
     data: web::Json<UpdateCommentData>,
 ) -> actix_web::Result<HttpResponse> {
-    auth::validate_admin_session(request, &repo)?;
-    let mut comment = repo.get_comment(id)?.ok_or_else(|| error::ErrorNotFound("comment not found"))?;
+    auth::validate_admin_session(request, &pool).await?;
+    let mut comment = comments::get_comment(&pool, id).await?.ok_or_else(|| error::ErrorNotFound("comment not found"))?;
     let parser = Parser::new(data.markdown.as_str());
     let mut unsafe_html = String::new();
     pulldown_cmark::html::push_html(&mut unsafe_html, parser);
@@ -69,25 +69,25 @@ async fn update_comment(
     comment.markdown = data.markdown.clone();
     comment.html = ammonia::clean(&*unsafe_html);
     comment.status = data.status;
-    repo.update_comment(id, UpdateComment {
+    comments::update_comment(&pool, id, UpdateComment {
         name: data.name.clone(),
         email: data.email.clone(),
         website: data.website.clone(),
         markdown: data.markdown.clone(),
         html: comment.html.clone(),
         status: data.status,
-    })?;
+    }).await?;
     Ok(HttpResponse::Ok().json(comment))
 }
 
 #[delete("/admin/comments/{id:\\d+}")]
 async fn delete_comment(
     request: web::HttpRequest,
-    repo: web::Data<Repo>,
+    pool: web::Data<Pool>,
     web::Path(id): web::Path<i64>,
 ) -> actix_web::Result<HttpResponse> {
-    auth::validate_admin_session(request, &repo)?;
-    repo.delete_comment(id)?;
+    auth::validate_admin_session(request, &pool).await?;
+    comments::delete_comment(&pool, id).await?;
     Ok(HttpResponse::NoContent().body(""))
 }
 
