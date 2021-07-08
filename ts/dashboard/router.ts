@@ -77,6 +77,14 @@ export class Router {
         window.history.pushState({path, args}, document.title, pathToString(path, args));
     }
 
+    link(element: HTMLLinkElement, path: Path, args: Record<string, string> = {}) {
+        element.href = pathToString(path, args);
+        element.onclick = e => {
+            e.preventDefault();
+            this.navigate(path, args);
+        };
+    }
+
     navigate(path: Path, args: Record<string, string> = {}): boolean {
         const page = this.open(path, args);
         if (page) {

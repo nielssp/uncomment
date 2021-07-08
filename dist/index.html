@@ -79,6 +79,54 @@
             </div>
           </div>
         </div>
+        <div id="threads" style="display: none;">
+          <div class="box margin-top">
+            <div class="box-header">
+              <div class="box-title">
+                Threads
+              </div>
+              <button data-bind="refresh" title="Refresh">
+                &#10227;
+              </button>
+            </div>
+            <div data-bind="threads">
+            </div>
+          </div>
+          <div class="margin-top flex-row spacing middle end">
+            <div>
+              <strong><span data-bind="pageStart"></span>&ndash;<span data-bind="pageEnd"></span></strong>
+              of <span data-bind="total"></span>
+            </div>
+            <div class="button-group">
+              <button data-bind="prev">←</button>
+              <button data-bind="next">→</button>
+            </div>
+          </div>
+        </div>
+        <div id="users" style="display: none;">
+          <div class="box margin-top">
+            <div class="box-header">
+              <div class="box-title">
+                Users
+              </div>
+              <button data-bind="refresh" title="Refresh">
+                &#10227;
+              </button>
+            </div>
+            <div data-bind="users">
+            </div>
+          </div>
+          <div class="margin-top flex-row spacing middle end">
+            <div>
+              <strong><span data-bind="pageStart"></span>&ndash;<span data-bind="pageEnd"></span></strong>
+              of <span data-bind="total"></span>
+            </div>
+            <div class="button-group">
+              <button data-bind="prev">←</button>
+              <button data-bind="next">→</button>
+            </div>
+          </div>
+        </div>
         <div id="change-password" style="display: none;">
           <div class="box small padding">
             <div class="info warning" data-bind="info"></div>

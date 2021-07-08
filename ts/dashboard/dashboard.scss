@@ -377,3 +377,24 @@ button,
         border-color: #AF5050;
     }
 }
+
+.thread-row {
+    @media screen and (min-width: 60rem) {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .thread-info {
+        display: flex;
+        flex-wrap: wrap;
+        & > * {
+            white-space: nowrap;
+            & + *::before {
+                content: '\2022';
+                display: inline-block;
+                margin: 0 0.5em;
+            }
+        }
+    }
+}

@@ -35,6 +35,9 @@ type Filter = {
     type: 'parent_id',
     value: number,
 } | {
+    type: 'thread_id',
+    value: number,
+} | {
     type: 'id',
     value: number,
 };
@@ -105,6 +108,7 @@ export class Comments implements Page {
                     this.filter = {type: args.filterType, value: args.filterValue as CommentStatus};
                     break;
                 case 'parent_id':
+                case 'thread_id':
                 case 'id':
                     this.filter = {type: args.filterType, value: parseInt(args.filterValue, 10)};
                     break;
@@ -161,7 +165,7 @@ export class Comments implements Page {
             this.template.comments.innerHTML = '';
             this.comments.content.forEach(comment => {
                 appendComponent(this.template.comments, CommentRow, commentTemplate,
-                    {comment, api: this.services.api, comments: this})
+                    {comment, api: this.services.api, router: this.services.router, comments: this})
             });
             if (this.offset > 0) {
                 this.template.prev.disabled = false;
@@ -264,11 +268,16 @@ class CommentRow {
         private data: {
             comment: Comment,
             api: Api,
+            router: Router,
             comments: Comments,
         }
     ) {
         const comment = data.comment;
         template.thread.textContent = comment.thread_name;
+        data.router.link(template.thread, ['threads'], {
+            'filterType': 'id',
+            'filterValue': '' + data.comment.thread_id,
+        });
         template.comment.classList.add(comment.status.toLowerCase());
         this.update(comment);
         const created = new Date(comment.created_timestamp * 1000);
@@ -277,9 +286,15 @@ class CommentRow {
         template.created.dateTime = created.toISOString();
         template.more.onclick = e => this.more(e);
         template.replies.textContent = (n => n === 1 ? `${n} reply` : `${n} replies`)(comment.replies);
-        template.replies.onclick = e => this.replies(e);
+        data.router.link(template.replies, ['comments'], {
+            'filterType': 'parent_id',
+            'filterValue': '' + data.comment.id,
+        });
         template.parent.style.display = comment.parent_id ? '' : 'none';
-        template.parent.onclick = e => this.parent(e);
+        data.router.link(template.parent, ['comments'], {
+            'filterType': 'id',
+            'filterValue': '' + data.comment.parent_id,
+        });
         template.approve.disabled = comment.status === 'Approved';
         template.reject.disabled = comment.status === 'Rejected';
         template.edit.onclick = () => this.edit();
@@ -298,16 +313,6 @@ class CommentRow {
             this.template.more.textContent = '[less]';
             this.expanded = true;
         }
-    }
-
-    replies(e: MouseEvent) {
-        e.preventDefault();
-        this.data.comments.applyFilter({type: 'parent_id', value: this.data.comment.id});
-    }
-
-    parent(e: MouseEvent) {
-        e.preventDefault();
-        this.data.comments.applyFilter({type: 'id', value: this.data.comment.parent_id!});
     }
 
     edit() {

@@ -94,6 +94,7 @@ pub struct PrivateComment {
 pub enum CommentFilter {
     Status(CommentStatus),
     Parent(i64),
+    Thread(i64),
 }
 
 pub struct UpdateComment {
@@ -325,6 +326,9 @@ pub async fn get_comments(pool: &Pool, filter: CommentFilter, asc: bool, limit: 
         CommentFilter::Parent(parent_id) => {
             query = query.so_that(("c", "parent_id").equals(parent_id));
         },
+        CommentFilter::Thread(thread_id) => {
+            query = query.so_that(("c", "thread_id").equals(thread_id));
+        },
     };
     if asc {
         query = query.order_by("created".ascend());
@@ -340,6 +344,7 @@ pub async fn get_comments(pool: &Pool, filter: CommentFilter, asc: bool, limit: 
             .so_that(match filter {
                 CommentFilter::Status(status) => "status".equals(status.to_string()),
                 CommentFilter::Parent(parent_id) => "parent_id".equals(parent_id),
+                CommentFilter::Thread(thread_id) => "thread_id".equals(thread_id),
             })).await?
         .first()
             .map(|row| row[0].as_i64())

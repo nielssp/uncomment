@@ -8,7 +8,7 @@
 use std::collections::HashSet;
 
 use log::info;
-use quaint::{prelude::*, pooled::Quaint};
+use quaint::{pooled::{PooledConnection, Quaint}, prelude::*};
 use crate::settings::Settings;
 use thiserror::Error;
 
@@ -44,6 +44,25 @@ pub fn insert_id(id_opt: Option<Id>) -> Result<i64, DbError> {
         Some(Id::Int(id)) => Ok(id as i64),
         _ => Err(DbError::ColumnTypeError),
     }
+}
+
+pub async fn count_remaining<'a>(
+    conn: &PooledConnection,
+    length: usize,
+    limit: usize,
+    offset: usize,
+    select: Select<'a>,
+) -> Result<usize, DbError> {
+    let mut remaining = 0;
+    if length == limit {
+        let size = conn.select(select).await?
+        .first()
+            .map(|row| row[0].as_i64())
+            .flatten()
+            .unwrap_or(0) as usize;
+        remaining = size - offset - limit;
+    }
+    Ok(remaining)
 }
 
 pub async fn install(settings: &Settings) -> Result<Pool, DbError> {

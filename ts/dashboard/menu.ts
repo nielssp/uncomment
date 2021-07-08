@@ -22,21 +22,13 @@ export class Menu {
             router: Router,
         },
     ) {
-        template.comments.onclick = e => this.comments(e);
-        template.changePassword.onclick = e => this.changePassword(e);
+        services.router.link(template.comments, ['comments']);
+        services.router.link(template.threads, ['threads']);
+        services.router.link(template.users, ['users']);
+        services.router.link(template.changePassword, ['change-password']);
         template.logOut.onclick = e => this.logOut(e);
         template.logIn.onclick = e => this.logIn(e);
         services.auth.userChange.observe(user => this.userChange(user));
-    }
-
-    comments(e: MouseEvent) {
-        e.preventDefault();
-        this.services.router.navigate(['comments']);
-    }
-
-    changePassword(e: MouseEvent) {
-        e.preventDefault();
-        this.services.router.navigate(['change-password']);
     }
 
     async logOut(e: MouseEvent) {
