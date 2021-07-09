@@ -7,7 +7,7 @@
 
 use actix_web::{App, HttpResponse, HttpServer, ResponseError, error, get, post, web};
 use chrono::{Duration, Local};
-use db::{DbError, Pool, comments::{self, CommentStatus, NewComment}, threads};
+use db::{DbError, Pool, comments::{self, CommentStatus, NewComment}, threads::{self, NewThread}};
 use dotenv::dotenv;
 use log::{debug, info};
 use pulldown_cmark::Parser;
@@ -70,7 +70,10 @@ async fn post_comment(
         None => {
             if settings.auto_threads {
                 // TODO: setting to validate thread name by making a GET request to the site
-                Ok(threads::create_thread(&pool, &query.t).await.map(|t| {
+                Ok(threads::create_thread(&pool, NewThread {
+                    name: query.t.clone(),
+                    title: None,
+                }).await.map(|t| {
                     info!("Created new thread: '{}' (id: {})", t.name, t.id);
                     t
                 })?)

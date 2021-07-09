@@ -3,8 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { language } from "../languages/default";
-import { getRelative } from "../util";
 import { Api, ApiPage } from "./api";
 import { Page, Router } from "./router";
 import { appendComponent } from "./util";
@@ -33,6 +31,8 @@ export class Threads implements Page {
             pageStart: HTMLElement,
             pageEnd: HTMLElement,
             total: HTMLElement,
+            filterAll: HTMLButtonElement,
+            create: HTMLButtonElement,
             refresh: HTMLButtonElement,
             prev: HTMLButtonElement,
             next: HTMLButtonElement,
@@ -42,16 +42,10 @@ export class Threads implements Page {
             router: Router,
         },
     ) {
+        template.filterAll.onclick = () => this.applyFilter();
+        template.create.onclick = () => this.create();
         template.next.onclick = () => this.next();
         template.prev.onclick = () => this.prev();
-    }
-
-    async applyFilter(filter?: Filter) {
-        this.offset = 0;
-        this.filter = filter;
-        this.pushState();
-        await this.fetchThreads();
-        this.updateButtons();
     }
 
     enter(args: {offset: string, filterType: string, filterValue: string}): void {
@@ -86,7 +80,31 @@ export class Threads implements Page {
         this.template.root.style.display = 'none';
     }
 
+    async applyFilter(filter?: Filter) {
+        this.offset = 0;
+        this.filter = filter;
+        this.pushState();
+        await this.fetchThreads();
+        this.updateButtons();
+    }
+
+    create() {
+        appendComponent(this.template.threads, ThreadRow, threadTemplate, {
+            thread: {
+                id: 0,
+                name: '',
+                title: '',
+                comments: 0,
+            },
+            api: this.services.api,
+            router: this.services.router,
+            threads: this,
+            isNew: true,
+        });
+    }
+
     updateButtons(): void {
+        this.template.filterAll.setAttribute('aria-pressed', `${!this.filter}`);
     }
 
     async fetchThreads() {
@@ -185,6 +203,7 @@ class ThreadRow {
             api: Api,
             router: Router,
             threads: Threads,
+            isNew?: boolean,
         }
     ) {
         const thread = data.thread;
@@ -192,6 +211,9 @@ class ThreadRow {
         template.comments.textContent = (n => n === 1 ? `${n} comments` : `${n} comments`)(thread.comments);
         template.comments.onclick = e => this.comments(e);
         template.edit.onclick = () => this.edit();
+        if (data.isNew) {
+            this.edit();
+        }
     }
 
     comments(e: MouseEvent) {
@@ -209,8 +231,10 @@ class ThreadRow {
             onCancel: () => this.closeEdit(),
             onSave: thread => {
                 this.update(thread);
+                this.data.isNew = false;
                 this.closeEdit();
             },
+            isNew: this.data.isNew || false,
         });
         this.template.thread.style.display = 'none';
         this.template.actions.style.display = 'none';
@@ -228,10 +252,19 @@ class ThreadRow {
         this.template.editForm.innerHTML = '';
         this.template.thread.style.display = '';
         this.template.actions.style.display = '';
+        if (this.data.isNew) {
+            this.template.root.parentNode?.removeChild(this.template.root);
+        }
     }
 }
 
 const threadFormTemplate = `<form class="margin-top">
+    <div class="field">
+        <label>
+            Name
+            <input type="text" data-bind="name"/>
+        </label>
+    </div>
     <div class="field">
         <label>
             Title
@@ -248,6 +281,7 @@ class ThreadForm {
     constructor(
         private template: {
             root: HTMLFormElement,
+            name: HTMLInputElement,
             title: HTMLInputElement,
             cancel: HTMLButtonElement,
             submit: HTMLButtonElement,
@@ -257,9 +291,14 @@ class ThreadForm {
             thread: Thread,
             onCancel: () => void,
             onSave: (thread: Thread) => void,
+            isNew: boolean,
         }
     ) {
+        template.name.value = data.thread.name;
         template.title.value = data.thread.title;
+        if (!this.data.isNew) {
+            template.name.disabled = true;
+        }
         template.cancel.onclick = () => data.onCancel();
         template.root.onsubmit = e => this.submit(e);
     }
@@ -268,10 +307,16 @@ class ThreadForm {
         e.preventDefault();
         this.template.submit.disabled = true;
         try {
-            const thread = await this.data.api.put<Thread>(`admin/threads/${this.data.thread.id}`, {
-                title: this.template.title.value,
-            });
-            this.data.onSave(thread);
+            if (this.data.isNew) {
+                this.data.onSave(await this.data.api.post<Thread>(`admin/threads`, {
+                    name: this.template.name.value,
+                    title: this.template.title.value,
+                }));
+            } else {
+                this.data.onSave(await this.data.api.put<Thread>(`admin/threads/${this.data.thread.id}`, {
+                    title: this.template.title.value,
+                }));
+            }
         } catch (error) {
             alert('Server error');
         } finally {

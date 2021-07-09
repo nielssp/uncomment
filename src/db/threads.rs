@@ -22,6 +22,12 @@ pub struct Thread {
 }
 
 #[derive(serde::Deserialize)]
+pub struct NewThread {
+    pub name: String,
+    pub title: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
 pub struct UpdateThread {
     pub title: Option<String>,
 }
@@ -61,13 +67,13 @@ pub async fn get_thread_by_id(pool: &Pool, id: i64) -> Result<Option<Thread>, Db
     Ok(query_threads(&conn, get_default_thread_query().so_that("id".equals(id))).await?.into_iter().next())
 }
 
-pub async fn create_thread(pool: &Pool, thread_name: &str) -> Result<Thread, DbError> {
+pub async fn create_thread(pool: &Pool, data: NewThread) -> Result<Thread, DbError> {
     let conn = pool.check_out().await?;
-    let id = insert_id(conn.insert(Insert::single_into("threads").value("name", thread_name).build()).await?)?;
+    let id = insert_id(conn.insert(Insert::single_into("threads").value("name", data.name.as_str()).build()).await?)?;
     Ok(Thread {
         id: id as i64,
-        name: thread_name.to_owned(),
-        title: None,
+        name: data.name,
+        title: data.title,
         comments: 0,
     })
 }

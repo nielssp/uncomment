@@ -42,7 +42,7 @@
         <div id="comments" style="display: none;">
           <div>
             <div class="button-group">
-              <button data-bind="filterPending" aria-pressed="true">
+              <button data-bind="filterPending" aria-pressed="false">
                 Pending
               </button>
               <button data-bind="filterApproved" aria-pressed="false">
@@ -80,6 +80,16 @@
           </div>
         </div>
         <div id="threads" style="display: none;">
+          <div class="flex-row space-between">
+            <div class="button-group">
+              <button data-bind="filterAll" aria-pressed="true">
+                All
+              </button>
+            </div>
+            <button data-bind="create">
+              Create
+            </button>
+          </div>
           <div class="box margin-top">
             <div class="box-header">
               <div class="box-title">

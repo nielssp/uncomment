@@ -5,10 +5,10 @@
 
 //! Uncomment dashboard API
 
-use actix_web::{HttpResponse, delete, error, get, put, web};
+use actix_web::{HttpResponse, delete, error, get, put, post, web};
 use pulldown_cmark::Parser;
 
-use crate::{auth, db::{Pool, comments::{self, CommentFilter, CommentStatus, UpdateComment}, threads::{self, UpdateThread}}};
+use crate::{auth, db::{Pool, comments::{self, CommentFilter, CommentStatus, UpdateComment}, threads::{self, NewThread, UpdateThread}}};
 
 #[derive(serde::Deserialize)]
 struct CommentQuery {
@@ -108,6 +108,16 @@ async fn get_threads(
     Ok(HttpResponse::Ok().json(threads::get_threads(&pool, 30, query.offset.unwrap_or(0)).await?))
 }
 
+#[post("/admin/threads")]
+async fn create_thread(
+    request: web::HttpRequest,
+    pool: web::Data<Pool>,
+    data: web::Json<NewThread>,
+) -> actix_web::Result<HttpResponse> {
+    auth::validate_admin_session(request, &pool).await?;
+    Ok(HttpResponse::Ok().json(threads::create_thread(&pool, data.into_inner()).await?))
+}
+
 #[get("/admin/threads/{id:\\d+}")]
 async fn get_thread(
     request: web::HttpRequest,
@@ -151,6 +161,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(update_comment)
         .service(delete_comment)
         .service(get_threads)
+        .service(create_thread)
         .service(get_thread)
         .service(update_thread)
         .service(delete_thread);
