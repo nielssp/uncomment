@@ -28,7 +28,6 @@ pub async fn get_session(pool: &Pool, session_id: &str) -> Result<Option<Session
             ("s", "valid_until"),
             ("u", "id"),
             ("u", "username"),
-            ("u", "password"),
             ("u", "name"),
             ("u", "email"),
             ("u", "website"),
@@ -45,12 +44,11 @@ pub async fn get_session(pool: &Pool, session_id: &str) -> Result<Option<Session
             user: User {
                 id: row[2].clone().try_into()?,
                 username: row[3].clone().try_into()?,
-                password: row[4].clone().try_into()?,
-                name: row[5].clone().try_into()?,
-                email: row[6].clone().try_into()?,
-                website: row[7].clone().try_into()?,
-                trusted: row[8].clone().try_into()?,
-                admin: row[9].clone().try_into()?,
+                name: row[4].clone().try_into()?,
+                email: row[5].clone().try_into()?,
+                website: row[6].clone().try_into()?,
+                trusted: row[7].clone().try_into()?,
+                admin: row[8].clone().try_into()?,
             },
         }))
     } else {

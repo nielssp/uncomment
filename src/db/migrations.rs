@@ -36,7 +36,7 @@ pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])]
          id integer primary key autoincrement,
          username text(100) not null,
          password text(200) not null,
-         name text(100) not null,
+         name text(100) not null unique,
          email text(100) not null,
          website text(100) not null,
          trusted boolean not null default 0,

@@ -58,16 +58,16 @@ pub async fn validate_session(
     match request.cookie("uncomment_session")    {
         Some(cookie) => {
             let session = sessions::get_session(pool, cookie.value()).await?
-                .ok_or_else(|| error::ErrorUnauthorized("unauthorized"))?;
+                .ok_or_else(|| error::ErrorUnauthorized("UNAUTHORIZED"))?;
             if session.valid_until >= Local::now() {
                 Ok(session)
             } else {
                 info!("session expired");
                 sessions::delete_session(pool, &session.id).await?;
-                Err(error::ErrorUnauthorized("unauthorized"))
+                Err(error::ErrorUnauthorized("UNAUTHORIZED"))
             }
         },
-        None => Err(error::ErrorUnauthorized("missing session id")),
+        None => Err(error::ErrorUnauthorized("MISSING_SESSION")),
     }
 }
 
@@ -79,7 +79,7 @@ pub async fn validate_admin_session(
     if session.user.admin {
         Ok(session)
     } else {
-        Err(error::ErrorForbidden("insufficient privileges"))
+        Err(error::ErrorForbidden("INSUFFICIENT_PRIVILEGES"))
     }
 }
 
@@ -97,7 +97,7 @@ pub fn hash_password(password: &str, settings: &Settings) -> actix_web::Result<S
         .hash()
         .map_err(|e| {
             error!("hashing error {}", e);
-            error::ErrorInternalServerError("internal server error")
+            error::ErrorInternalServerError("INTERNAL_SERVER_ERROR")
         })
 }
 
@@ -109,7 +109,7 @@ pub fn verify_password(hash: &str, password: &str, settings: &Settings) -> actix
         .verify()
         .map_err(|e| {
             error!("hash verification error {}", e);
-            error::ErrorInternalServerError("internal server error")
+            error::ErrorInternalServerError("INTERNAL_SERVER_ERROR")
         })
 }
 
@@ -128,13 +128,18 @@ async fn create_auth(
     pool: web::Data<Pool>,
     settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
-    let user = users::get_user(&pool, &data.username).await?
+    let password = users::get_password_by_username(&pool, &data.username).await?
         .ok_or_else(|| {
             info!("user not found: {}", data.username);
-            error::ErrorBadRequest("invalid credentials")
+            error::ErrorBadRequest("INVALID_CREDENTIALS")
         })?;
-    if verify_password(&user.password, &data.password, &settings)? {
+    if verify_password(&password.password, &data.password, &settings)? {
         let session_id = generate_session_id();
+        let user = users::get_user_by_id(&pool, password.user_id).await?
+            .ok_or_else(|| {
+                info!("user not found by id: {}", password.user_id);
+                error::ErrorBadRequest("INVALID_CREDENTIALS")
+            })?;
         sessions::create_session(&pool, &session_id, Local::now() + Duration::hours(1), user.id).await?;
         Ok(HttpResponse::Ok()
             .cookie(Cookie::build("uncomment_session", session_id)
@@ -144,7 +149,7 @@ async fn create_auth(
             .json(SessionUser::from(user)))
     } else {
         info!("invalid password");
-        Err(error::ErrorBadRequest("invalid credentials"))
+        Err(error::ErrorBadRequest("INVALID_CREDENTIALS"))
     }
 }
 
@@ -166,11 +171,16 @@ async fn update_password(
     settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
     let session = validate_session(request, &pool).await?;
-    if verify_password(&session.user.password, &data.existing_password, &settings)? {
+    let password = users::get_password_by_user_id(&pool, session.user.id).await?
+        .ok_or_else(|| {
+            info!("user not found by id: {}", session.user.id);
+            error::ErrorInternalServerError("INTERNAL_SERVER_ERROR")
+        })?;
+    if verify_password(&password.password, &data.existing_password, &settings)? {
         users::change_password(&pool, session.user.id, &hash_password(&data.new_password, &settings)?).await?;
         Ok(HttpResponse::NoContent().body(""))
     } else {
-        Err(error::ErrorBadRequest("invalid password"))
+        Err(error::ErrorBadRequest("INVALID_PASSWORD"))
     }
 }
 

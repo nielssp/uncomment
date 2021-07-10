@@ -65,7 +65,7 @@ async fn post_comment(
             Err(error::ErrorTooManyRequests("TOO_MANY_COMMENTS"))?;
         }
     }
-    let thread = match threads::get_thread(&pool, &query.t).await? {
+    let thread = match threads::get_thread_by_name(&pool, &query.t).await? {
         Some(t) => Ok(t),
         None => {
             if settings.auto_threads {

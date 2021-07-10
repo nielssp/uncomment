@@ -5,7 +5,7 @@
 
 import { Api, ApiPage } from "./api";
 import { Page, Router } from "./router";
-import { appendComponent } from "./util";
+import { appendComponent, prependComponent } from "./util";
 
 export interface Thread {
     id: number;
@@ -44,6 +44,7 @@ export class Threads implements Page {
     ) {
         template.filterAll.onclick = () => this.applyFilter();
         template.create.onclick = () => this.create();
+        template.refresh.onclick = () => this.fetchThreads();
         template.next.onclick = () => this.next();
         template.prev.onclick = () => this.prev();
     }
@@ -89,7 +90,7 @@ export class Threads implements Page {
     }
 
     create() {
-        appendComponent(this.template.threads, ThreadRow, threadTemplate, {
+        prependComponent(this.template.threads, ThreadRow, threadTemplate, {
             thread: {
                 id: 0,
                 name: '',
@@ -242,6 +243,7 @@ class ThreadRow {
     }
 
     update(thread: Thread) {
+        this.data.thread = thread;
         this.template.name.textContent = thread.name;
         this.template.title.textContent = thread.title;
         this.template.title.style.display = thread.title ? '' : 'none';

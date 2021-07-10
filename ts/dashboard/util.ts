@@ -33,3 +33,25 @@ export function appendComponent<TTemplate extends {root: HTMLElement}, TComponen
     parent.appendChild(root);
     return new cons(bindings, data);
 }
+
+export function prependComponent<TTemplate extends {root: HTMLElement}, TComponent, TData>(
+    parent: HTMLElement,
+    cons: new (template: TTemplate, data: TData) => TComponent,
+    template: string,
+    data: TData
+): TComponent {
+    const temp = document.createElement('div');
+    temp.innerHTML = template;
+    const root = temp.children[0];
+    const bindings: any = {root};
+    root.querySelectorAll('[data-bind]').forEach(elem => {
+        bindings[elem.getAttribute('data-bind')!] = elem;
+        elem.removeAttribute('data-bind');
+    });
+    if (parent.children.length) {
+        parent.insertBefore(root, parent.children[0]);
+    } else {
+        parent.appendChild(root);
+    }
+    return new cons(bindings, data);
+}

@@ -10,7 +10,7 @@
   <body>
     <div class="root">
       <aside>
-        <h1>Uncomment</h1>
+        <h1><img src="logo.svg" alt="Uncomment" /></h1>
         <ul role="menu" id="menu">
           <li><a href="#comments" data-bind="comments">Comments</a></li>
           <li><a href="#threads" data-bind="threads">Threads</a></li>
@@ -114,6 +114,16 @@
           </div>
         </div>
         <div id="users" style="display: none;">
+          <div class="flex-row space-between">
+            <div class="button-group">
+              <button data-bind="filterAll" aria-pressed="true">
+                All
+              </button>
+            </div>
+            <button data-bind="create">
+              Create
+            </button>
+          </div>
           <div class="box margin-top">
             <div class="box-header">
               <div class="box-title">

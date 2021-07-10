@@ -11,6 +11,7 @@ import { Login } from "./login";
 import { Menu } from "./menu";
 import { Router } from "./router";
 import { Threads } from "./threads";
+import { Users } from "./users";
 import { createComponent } from "./util";
 
 require('./dashboard.scss');
@@ -23,6 +24,7 @@ const router = new Router({
     '': router => createComponent(Login, document.getElementById('login')!, {auth, router}),
     'comments': router => createComponent(Comments, document.getElementById('comments')!, {api, router}),
     'threads': router => createComponent(Threads, document.getElementById('threads')!, {api, router}),
+    'users': router => createComponent(Users, document.getElementById('users')!, {api, router}),
     'change-password': router => createComponent(ChangePassword, document.getElementById('change-password')!,
         {api, router}),
 });

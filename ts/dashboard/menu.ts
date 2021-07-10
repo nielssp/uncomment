@@ -43,17 +43,20 @@ export class Menu {
     }
 
     userChange(user: User|undefined) {
-        if (user) {
+        if (user && user.admin) {
             this.template.comments.style.display = '';
             this.template.threads.style.display = '';
             this.template.users.style.display = '';
-            this.template.changePassword.style.display = '';
-            this.template.logOut.style.display = '';
-            this.template.logIn.style.display = 'none';
         } else {
             this.template.comments.style.display = 'none';
             this.template.threads.style.display = 'none';
             this.template.users.style.display = 'none';
+        }
+        if (user) {
+            this.template.changePassword.style.display = '';
+            this.template.logOut.style.display = '';
+            this.template.logIn.style.display = 'none';
+        } else {
             this.template.changePassword.style.display = 'none';
             this.template.logOut.style.display = 'none';
             this.template.logIn.style.display = '';

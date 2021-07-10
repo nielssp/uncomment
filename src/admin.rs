@@ -8,7 +8,7 @@
 use actix_web::{HttpResponse, delete, error, get, put, post, web};
 use pulldown_cmark::Parser;
 
-use crate::{auth, db::{Pool, comments::{self, CommentFilter, CommentStatus, UpdateComment}, threads::{self, NewThread, UpdateThread}}};
+use crate::{auth::{self, hash_password}, db::{Pool, comments::{self, CommentFilter, CommentStatus, UpdateComment}, threads::{self, NewThread, UpdateThread}, users::{self, NewUser, UpdateUser}}, settings::Settings};
 
 #[derive(serde::Deserialize)]
 struct CommentQuery {
@@ -21,6 +21,11 @@ struct CommentQuery {
 
 #[derive(serde::Deserialize)]
 struct ThreadQuery {
+    offset: Option<usize>,
+}
+
+#[derive(serde::Deserialize)]
+struct UserQuery {
     offset: Option<usize>,
 }
 
@@ -137,7 +142,7 @@ async fn update_thread(
     data: web::Json<UpdateThread>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &pool).await?;
-    let mut thread = threads::get_thread_by_id(&pool, id).await?.ok_or_else(|| error::ErrorNotFound("thread not found"))?;
+    let mut thread = threads::get_thread_by_id(&pool, id).await?.ok_or_else(|| error::ErrorNotFound("NOT_FOUND"))?;
     thread.title = data.title.clone();
     threads::update_thread(&pool, id, data.into_inner()).await?;
     Ok(HttpResponse::Ok().json(thread))
@@ -154,6 +159,75 @@ async fn delete_thread(
     Ok(HttpResponse::NoContent().body(""))
 }
 
+#[get("/admin/users")]
+async fn get_users(
+    request: web::HttpRequest,
+    pool: web::Data<Pool>,
+    query: web::Query<UserQuery>,
+) -> actix_web::Result<HttpResponse> {
+    auth::validate_admin_session(request, &pool).await?;
+    Ok(HttpResponse::Ok().json(users::get_users(&pool, 30, query.offset.unwrap_or(0)).await?))
+}
+
+#[post("/admin/users")]
+async fn create_user(
+    request: web::HttpRequest,
+    pool: web::Data<Pool>,
+    data: web::Json<NewUser>,
+    settings: web::Data<Settings>,
+) -> actix_web::Result<HttpResponse> {
+    auth::validate_admin_session(request, &pool).await?;
+    let mut user = data.into_inner();
+    user.password = hash_password(&user.password, &settings)?;
+    Ok(HttpResponse::Ok().json(users::create_user(&pool, user).await?))
+}
+
+#[get("/admin/ussers/{id:\\d+}")]
+async fn get_user(
+    request: web::HttpRequest,
+    pool: web::Data<Pool>,
+    web::Path(id): web::Path<i64>,
+) -> actix_web::Result<HttpResponse> {
+    auth::validate_admin_session(request, &pool).await?;
+    let user = users::get_user_by_id(&pool, id).await?.ok_or_else(|| error::ErrorNotFound("NOT_FOUND"))?;
+    Ok(HttpResponse::Ok().json(user))
+}
+
+#[put("/admin/users/{id:\\d+}")]
+async fn update_user(
+    request: web::HttpRequest,
+    pool: web::Data<Pool>,
+    web::Path(id): web::Path<i64>,
+    data: web::Json<UpdateUser>,
+    settings: web::Data<Settings>,
+) -> actix_web::Result<HttpResponse> {
+    auth::validate_admin_session(request, &pool).await?;
+    let mut user = users::get_user_by_id(&pool, id).await?.ok_or_else(|| error::ErrorNotFound("NOT_FOUND"))?;
+    user.username = data.username.clone();
+    user.name = data.name.clone();
+    user.email = data.email.clone();
+    user.website = data.website.clone();
+    user.trusted = data.trusted;
+    user.admin = data.admin;
+    let mut update = data.into_inner();
+    if let Some(password) = update.password {
+        update.password = Some(hash_password(&password, &settings)?);
+    }
+    users::update_user(&pool, id, update).await?;
+    Ok(HttpResponse::Ok().json(user))
+}
+
+#[delete("/admin/users/{id:\\d+}")]
+async fn delete_user(
+    request: web::HttpRequest,
+    pool: web::Data<Pool>,
+    web::Path(id): web::Path<i64>,
+) -> actix_web::Result<HttpResponse> {
+    auth::validate_admin_session(request, &pool).await?;
+    users::delete_user(&pool, id).await?;
+    Ok(HttpResponse::NoContent().body(""))
+}
+
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(get_comments)
@@ -164,6 +238,11 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(create_thread)
         .service(get_thread)
         .service(update_thread)
-        .service(delete_thread);
+        .service(delete_thread)
+        .service(get_users)
+        .service(create_user)
+        .service(get_user)
+        .service(update_user)
+        .service(delete_user);
 }
 

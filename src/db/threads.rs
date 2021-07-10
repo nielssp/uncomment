@@ -34,7 +34,7 @@ pub struct UpdateThread {
 
 fn get_default_thread_query<'a>() -> Select<'a> {
     Select::from_table("threads".alias("t"))
-        .columns(vec!("id", "name", "title"))
+        .columns(vec!["id", "name", "title"])
         .value(Select::from_table("comments")
             .value(count(asterisk()))
             .so_that("thread_id".equals(Column::from(("t", "id")))))
@@ -57,7 +57,7 @@ async fn query_threads<'a>(
     Ok(content)
 }
 
-pub async fn get_thread(pool: &Pool, thread_name: &str) -> Result<Option<Thread>, DbError> {
+pub async fn get_thread_by_name(pool: &Pool, thread_name: &str) -> Result<Option<Thread>, DbError> {
     let conn = pool.check_out().await?;
     Ok(query_threads(&conn, get_default_thread_query().so_that("name".equals(thread_name))).await?.into_iter().next())
 }
