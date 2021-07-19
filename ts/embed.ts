@@ -112,11 +112,16 @@ function createCommentForm(
     onSuccess: (comment: Comment, template: FormTemplate) => void,
 ) {
     const template: FormTemplate = applyTemplate(form, formTemplate);
+    template.name.value = localStorage.getItem('uncomment_name') || '';
     template.name.required = config.requireName;
+    template.email.value = localStorage.getItem('uncomment_email') || '';
     template.email.required = config.requireEmail;
+    template.website.value = localStorage.getItem('uncomment_website') || '';
     form.onsubmit = async e => {
         e.preventDefault();
-        console.log(template);
+        localStorage.setItem('uncomment_name', template.name.value);
+        localStorage.setItem('uncomment_email', template.email.value);
+        localStorage.setItem('uncomment_website', template.website.value);
         const comment = await postComment(config, {
             name: template.name.value,
             email: template.email.value,
@@ -162,10 +167,11 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
             template.replyLink.textContent = language.reply;
         } else {
             createCommentForm(config, template.replyForm, comment.id, reply => {
-                addCommentToContainer(config, template.replies, reply, config.newestFirst);
+                const elem = addCommentToContainer(config, template.replies, reply, config.newestFirst);
                 template.replyForm.innerHTML = '';
                 replyFormOpen = false;
                 template.replyLink.textContent = language.reply;
+                elem.scrollIntoView();
             });
             replyFormOpen = true;
             template.replyLink.textContent = language.cancel;
@@ -173,9 +179,9 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
     };
     comment.replies.forEach(reply => addCommentToContainer(config, template.replies, reply));
     if (atStart && container.children.length) {
-        container.insertBefore(temp.children[0], container.children[0]);
+        return container.insertBefore(temp.children[0], container.children[0]);
     } else {
-        container.appendChild(temp.children[0]);
+        return container.appendChild(temp.children[0]);
     }
 }
 
@@ -210,7 +216,8 @@ function load(config: Config) {
     const main = applyTemplate<MainTemplate>(config.target, mainTemplate);
     createCommentForm(config, main.newCommentForm, undefined, (comment, template) => {
         template.content.value = '';
-        addCommentToContainer(config, main.comments, comment, config.newestFirst);
+        const elem = addCommentToContainer(config, main.comments, comment, config.newestFirst);
+        elem.scrollIntoView();
     });
     if (config.clickToLoad) {
         const button = document.createElement('button');
