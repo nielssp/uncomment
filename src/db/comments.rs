@@ -106,6 +106,21 @@ pub struct UpdateComment {
     pub status: CommentStatus,
 }
 
+pub async fn count_comments_by_thread(pool: &Pool, thread_names: Vec<&str>) -> Result<HashMap<String, i64>, DbError> {
+    let conn = pool.check_out().await?;
+    let mut rows = conn.select(Select::from_table("comments".alias("c"))
+        .value(Column::from(("t", "name")))
+        .value(count(asterisk()))
+        .inner_join("threads".alias("t").on(("t", "id").equals(Column::from(("c", "thread_id")))))
+        .so_that(("t", "name").in_selection(thread_names))
+        .group_by(Column::from(("t", "name")))).await?.into_iter();
+    let mut result = HashMap::new();
+    while let Some(row) = rows.next() {
+        result.insert(row[0].clone().try_into()?, row[1].clone().try_into()?);
+    }
+    Ok(result)
+}
+
 fn build_comment_tree(comment: &mut PublicComment, replies: &HashMap<i64, Vec<PublicComment>>) {
     match replies.get(&comment.id) {
         Some(comment_replies) => {

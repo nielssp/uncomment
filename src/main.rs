@@ -21,6 +21,11 @@ mod admin;
 mod settings;
 
 #[derive(Deserialize)]
+struct CountQuery {
+    t: String,
+}
+
+#[derive(Deserialize)]
 struct CommentQuery {
     t: String,
     parent_id: Option<i64>,
@@ -36,6 +41,16 @@ struct NewCommentData {
 }
 
 impl ResponseError for DbError {
+}
+
+#[get("/count")]
+async fn count_comments(
+    query: web::Query<CountQuery>,
+    pool: web::Data<Pool>,
+) -> actix_web::Result<HttpResponse> {
+    let thread_names: Vec<&str> = query.t.split(",").collect();
+    let counts = comments::count_comments_by_thread(&pool, thread_names).await?;
+    Ok(HttpResponse::Ok().json(counts))
 }
 
 #[get("/comments")]
@@ -143,6 +158,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .data(pool.clone())
             .data(settings.clone())
+            .service(count_comments)
             .service(get_comments)
             .service(post_comment)
             .configure(auth::config)
