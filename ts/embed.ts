@@ -3,10 +3,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { initCommentCounts } from './comments';
 import { language } from './languages/default';
 import { getRelative } from './util';
 
-const mainTemplate = '<form data-bind="newCommentForm"></form><div class="comments" data-bind="comments"></div>';
+const mainTemplate = '<div data-bind="commentCount"></div><form data-bind="newCommentForm"></form><div class="comments" data-bind="comments"></div>';
 const formTemplate = `<input type="text" name="name" data-bind="name" placeholder="${language.name}"/><input type="email" name="email" data-bind="email" placeholder="${language.email}"/><input type="url" name="website" data-bind="website" placeholder="${language.website}"/><br/><textarea name="content" data-bind="content" placeholder="${language.comment}" required></textarea><br/><button type="submit">${language.submit}</button>`;
 const commentTemplate = `<div class="comment" data-bind="comment"><div class="comment-header"><span class="author" data-bind="author"></span><time data-bind="created"></time></div><div class="comment-body" data-bind="content"></div><div class="comment-actions"><a href="#" data-bind="replyLink">${language.reply}</a></div><form data-bind="replyForm"></form><div class="replies" data-bind="replies"></div></div>`;
 
@@ -21,6 +22,7 @@ function applyTemplate<T extends {}>(target: Element, template: string): T {
 }
 
 interface MainTemplate {
+    commentCount: HTMLElement,
     newCommentForm: HTMLFormElement;
     comments: HTMLElement;
 }
@@ -214,6 +216,8 @@ async function loadComments(config: Config, container: Element) {
 function load(config: Config) {
     config.target.classList.add('uncomment');
     const main = applyTemplate<MainTemplate>(config.target, mainTemplate);
+    main.commentCount.setAttribute('data-uncomment-count', config.id);
+    initCommentCounts(config.api);
     createCommentForm(config, main.newCommentForm, undefined, (comment, template) => {
         template.content.value = '';
         const elem = addCommentToContainer(config, main.comments, comment, config.newestFirst);

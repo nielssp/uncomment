@@ -8,6 +8,7 @@ module.exports = languages.map(language => {
     return {
         entry: {
             embed: './ts/embed.ts',
+            count: './ts/count.ts',
         },
         output: {
             path: path.resolve(__dirname, 'dist/' + language),

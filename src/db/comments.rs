@@ -113,6 +113,7 @@ pub async fn count_comments_by_thread(pool: &Pool, thread_names: Vec<&str>) -> R
         .value(count(asterisk()))
         .inner_join("threads".alias("t").on(("t", "id").equals(Column::from(("c", "thread_id")))))
         .so_that(("t", "name").in_selection(thread_names))
+        .and_where(("c", "status").equals("Approved"))
         .group_by(Column::from(("t", "name")))).await?.into_iter();
     let mut result = HashMap::new();
     while let Some(row) = rows.next() {
