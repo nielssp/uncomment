@@ -143,7 +143,7 @@ fn get_comment_order(newest_first: bool, max_depth: u8) -> String {
         if max_depth > 0 {
             order.push_str("c.level1_id desc,");
         }
-        for i in 2..max_depth {
+        for i in 1..max_depth {
             order.push_str(&format!("case when c.level{}_id is null then 0 else 1 end asc, c.level{}_id desc,",
                     i, i));
         }
@@ -152,7 +152,7 @@ fn get_comment_order(newest_first: bool, max_depth: u8) -> String {
         if max_depth > 0 {
             order.push_str("c.level1_id asc,");
         }
-        for i in 2..=max_depth {
+        for i in 1..=max_depth {
             order.push_str(&format!("c.level{}_id asc,", i));
         }
         order.push_str("c.id asc");
@@ -161,11 +161,18 @@ fn get_comment_order(newest_first: bool, max_depth: u8) -> String {
 }
 
 fn get_parent_id(
+    id: i64,
     ids: [Option<i64>; 6],
     max_depth: u8,
 ) -> Option<i64> {
     for i in (1..=max_depth).rev() {
-        if ids[i as usize].is_some() {
+        if i == 6 {
+            if let Some(parent_id) = ids[5] {
+                if parent_id != id {
+                    return Some(parent_id);
+                }
+            }
+        } else if ids[i as usize].is_some() {
             return ids[(i - 1) as usize];
         }
     }
@@ -178,7 +185,7 @@ pub async fn get_comment_thread(
     newest_first: bool,
     mut max_depth: u8,
 ) -> Result<Vec<PublicComment>, DbError> {
-    max_depth = cmp::max(0, cmp::min(5, max_depth));
+    max_depth = cmp::max(0, cmp::min(6, max_depth));
     let conn = pool.check_out().await?;
     let mut rows = conn.query_raw(
         &format!("select c.id, c.parent_id, c.level1_id, c.level2_id, c.level3_id, c.level4_id, c.level5_id, \
@@ -195,15 +202,16 @@ pub async fn get_comment_thread(
     while let Some(row) = rows.next() {
         let created_string: String = row[11].clone().try_into()?;
         let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
+        let id: i64 = row[0].clone().try_into()?;
         let level1_id = row[2].as_i64();
         let level2_id = row[3].as_i64();
         let level3_id = row[4].as_i64();
         let level4_id = row[5].as_i64();
         let level5_id = row[6].as_i64();
         let level6_id = row[7].as_i64();
-        let parent_id = get_parent_id([level1_id, level2_id, level3_id, level4_id, level5_id, level6_id], max_depth);
+        let parent_id = get_parent_id(id, [level1_id, level2_id, level3_id, level4_id, level5_id, level6_id], max_depth);
         let comment = PublicComment {
-            id: row[0].clone().try_into()?,
+            id,
             parent_id,
             name: row[8].clone().try_into()?,
             website: row[9].clone().try_into()?,
