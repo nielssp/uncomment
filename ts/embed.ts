@@ -7,8 +7,10 @@ import { initCommentCounts } from './comments';
 import { language } from './languages/default';
 import { getRelative } from './util';
 
+require('./slim.scss');
+
 const mainTemplate = '<div data-bind="commentCount"></div><form data-bind="newCommentForm"></form><div class="comments" data-bind="comments"></div>';
-const formTemplate = `<input type="text" name="name" data-bind="name" placeholder="${language.name}"/><input type="email" name="email" data-bind="email" placeholder="${language.email}"/><input type="url" name="website" data-bind="website" placeholder="${language.website}"/><br/><textarea name="content" data-bind="content" placeholder="${language.comment}" required></textarea><br/><button type="submit">${language.submit}</button>`;
+const formTemplate = `<div class="commenter-info"><input type="text" name="name" data-bind="name" placeholder="${language.name}"/><input type="email" name="email" data-bind="email" placeholder="${language.email}"/><input type="url" name="website" data-bind="website" placeholder="${language.website}"/></div><textarea name="content" data-bind="content" placeholder="${language.comment}" required></textarea><div class="buttons"><button type="submit">${language.submit}</button></div>`;
 const commentTemplate = `<div class="comment" data-bind="comment"><div class="comment-header"><span class="author" data-bind="author"></span><time data-bind="created"></time></div><div class="comment-body" data-bind="content"></div><div class="comment-actions"><a href="#" data-bind="replyLink">${language.reply}</a></div><form data-bind="replyForm"></form><div class="replies" data-bind="replies"></div></div>`;
 
 function applyTemplate<T extends {}>(target: Element, template: string): T {
@@ -62,6 +64,7 @@ interface Comment {
     html: string;
     created: string;
     created_timestamp: number;
+    approved: boolean;
     replies: Comment[];
 }
 
@@ -160,25 +163,29 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
     }
     template.created.dateTime = created.toISOString();
     template.content.innerHTML = comment.html;
+    if (comment.approved) {
     let replyFormOpen = false;
-    template.replyLink.onclick = e => {
-        e.preventDefault();
-        if (replyFormOpen) {
-            template.replyForm.innerHTML = '';
-            replyFormOpen = false;
-            template.replyLink.textContent = language.reply;
-        } else {
-            createCommentForm(config, template.replyForm, comment.id, reply => {
-                const elem = addCommentToContainer(config, template.replies, reply, config.newestFirst);
+        template.replyLink.onclick = e => {
+            e.preventDefault();
+            if (replyFormOpen) {
                 template.replyForm.innerHTML = '';
                 replyFormOpen = false;
                 template.replyLink.textContent = language.reply;
-                elem.scrollIntoView();
-            });
-            replyFormOpen = true;
-            template.replyLink.textContent = language.cancel;
-        }
-    };
+            } else {
+                createCommentForm(config, template.replyForm, comment.id, reply => {
+                    const elem = addCommentToContainer(config, template.replies, reply, config.newestFirst);
+                    template.replyForm.innerHTML = '';
+                    replyFormOpen = false;
+                    template.replyLink.textContent = language.reply;
+                    elem.scrollIntoView();
+                });
+                replyFormOpen = true;
+                template.replyLink.textContent = language.cancel;
+            }
+        };
+    } else {
+        template.replyLink.style.display = 'none';
+    }
     comment.replies.forEach(reply => addCommentToContainer(config, template.replies, reply));
     if (atStart && container.children.length) {
         return container.insertBefore(temp.children[0], container.children[0]);

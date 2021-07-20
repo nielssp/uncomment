@@ -57,9 +57,11 @@ async fn count_comments(
 async fn get_comments(
     query: web::Query<CommentQuery>,
     pool: web::Data<Pool>,
+    settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
     debug!("comments requested for {}", query.t);
-    let comments = comments::get_comment_thread(&pool, &query.t, query.newest_first.unwrap_or(false)).await?;
+    let comments = comments::get_comment_thread(&pool, &query.t, query.newest_first.unwrap_or(false), settings.max_depth)
+        .await?;
     Ok(HttpResponse::Ok().json(comments))
 }
 

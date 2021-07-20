@@ -1,0 +1,67 @@
+/* Copyright (c) 2021 Niels Sonnich Poulsen (http://nielssp.dk)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+.uncomment {
+    * {
+        box-sizing: border-box;
+    }
+    form {
+        display: flex;
+        flex-direction: column;
+
+        .commenter-info {
+            display: flex;
+
+            & > * {
+                flex-grow: 1;
+                width: 0;
+
+                & + * {
+                    margin-left: 1em;
+                }
+            }
+        }
+
+        textarea {
+            min-height: 120px;
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+        }
+    }
+
+    .comment {
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        padding-top: 1em;
+        margin: 1em auto;
+
+        .comment-header {
+            font-size: 0.8em;
+            margin-bottom: 0.5em;
+
+            & > .author {
+                font-weight: bold;
+
+                &::after {
+                    content: '\2022';
+                    display: inline-block;
+                    margin: 0 0.5em;
+                }
+            }
+        }
+
+        .comment-actions {
+            font-size: 0.8em;
+        }
+
+        .replies {
+            margin-left: 4em;
+        }
+    }
+
+    .comments > .comment:first-of-type {
+        border-top: none;
+        padding-top: none;
+    }
+}

@@ -5,7 +5,7 @@
 
 //! DB queries related to comments and threads
 
-use std::{collections::HashMap, convert::{TryFrom, TryInto}, fmt};
+use std::{cmp, collections::HashMap, convert::{TryFrom, TryInto}, fmt};
 
 use chrono::{DateTime, Local};
 use quaint::{pooled::PooledConnection, prelude::*};
@@ -48,6 +48,7 @@ pub struct PublicComment {
     pub html: String,
     pub created: String,
     pub created_timestamp: i64,
+    pub approved: bool,
     pub replies: Vec<PublicComment>,
 }
 
@@ -136,55 +137,80 @@ fn build_comment_tree(comment: &mut PublicComment, replies: &HashMap<i64, Vec<Pu
     }
 }
 
-fn get_comment_order(newest_first: bool) -> &'static str {
+fn get_comment_order(newest_first: bool, max_depth: u8) -> String {
+    let mut order: String = "".to_owned();
     if newest_first {
-        "c.level1_id desc, \
-            case when c.level2_id is null then 0 else 1 end asc, \
-            c.level2_id desc, \
-            case when c.level3_id is null then 0 else 1 end asc, \
-            c.level3_id desc, \
-            case when c.level4_id is null then 0 else 1 end asc, \
-            c.level4_id desc, \
-            case when c.level5_id is null then 0 else 1 end asc, \
-            c.level5_id desc, \
-            case when c.level6_id is null then 0 else 1 end asc, \
-            c.level6_id desc, \
-            c.id desc"
+        if max_depth > 0 {
+            order.push_str("c.level1_id desc,");
+        }
+        for i in 2..max_depth {
+            order.push_str(&format!("case when c.level{}_id is null then 0 else 1 end asc, c.level{}_id desc,",
+                    i, i));
+        }
+        order.push_str("c.id desc");
     } else {
-        "c.level1_id asc, \
-            c.level2_id asc, \
-            c.level3_id asc, \
-            c.level4_id asc, \
-            c.level5_id asc, \
-            c.level6_id asc, \
-            c.id asc"
+        if max_depth > 0 {
+            order.push_str("c.level1_id asc,");
+        }
+        for i in 2..=max_depth {
+            order.push_str(&format!("c.level{}_id asc,", i));
+        }
+        order.push_str("c.id asc");
     }
+    order
 }
 
-pub async fn get_comment_thread(pool: &Pool, thread_name: &str, newest_first: bool) -> Result<Vec<PublicComment>, DbError> {
+fn get_parent_id(
+    ids: [Option<i64>; 6],
+    max_depth: u8,
+) -> Option<i64> {
+    for i in (1..=max_depth).rev() {
+        if ids[i as usize].is_some() {
+            return ids[(i - 1) as usize];
+        }
+    }
+    None
+}
+
+pub async fn get_comment_thread(
+    pool: &Pool,
+    thread_name: &str,
+    newest_first: bool,
+    mut max_depth: u8,
+) -> Result<Vec<PublicComment>, DbError> {
+    max_depth = cmp::max(0, cmp::min(5, max_depth));
     let conn = pool.check_out().await?;
     let mut rows = conn.query_raw(
-        &format!("select c.id, c.parent_id, c.name, c.website, c.html, c.created \
+        &format!("select c.id, c.parent_id, c.level1_id, c.level2_id, c.level3_id, c.level4_id, c.level5_id, \
+                    c.level6_id, c.name, c.website, c.html, c.created \
                     from comments c \
                     inner join threads t on t.id = c.thread_id \
                     where t.name = ? \
                     and c.status = 'Approved'
-                    order by {}", get_comment_order(newest_first)), &[ParameterizedValue::from(thread_name)])
+                    order by {}", get_comment_order(newest_first, max_depth)), &[ParameterizedValue::from(thread_name)])
         .await?
         .into_iter();
     let mut root = Vec::new();
     let mut replies: HashMap<i64, Vec<PublicComment>> = HashMap::new();
     while let Some(row) = rows.next() {
-        let created_string: String = row[5].clone().try_into()?;
+        let created_string: String = row[11].clone().try_into()?;
         let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
+        let level1_id = row[2].as_i64();
+        let level2_id = row[3].as_i64();
+        let level3_id = row[4].as_i64();
+        let level4_id = row[5].as_i64();
+        let level5_id = row[6].as_i64();
+        let level6_id = row[7].as_i64();
+        let parent_id = get_parent_id([level1_id, level2_id, level3_id, level4_id, level5_id, level6_id], max_depth);
         let comment = PublicComment {
             id: row[0].clone().try_into()?,
-            parent_id: row[1].clone().as_i64(),
-            name: row[2].clone().try_into()?,
-            website: row[3].clone().try_into()?,
-            html: row[4].clone().try_into()?,
+            parent_id,
+            name: row[8].clone().try_into()?,
+            website: row[9].clone().try_into()?,
+            html: row[10].clone().try_into()?,
             created: created.to_rfc3339(),
             created_timestamp: created.timestamp(),
+            approved: true,
             replies: vec![],
         };
         match comment.parent_id {
@@ -286,6 +312,7 @@ pub async fn post_comment(
         html: data.html,
         created: now.to_rfc3339(),
         created_timestamp: now.timestamp(),
+        approved: data.status == CommentStatus::Approved,
         replies: vec![],
     })
 }

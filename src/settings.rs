@@ -20,6 +20,7 @@ pub struct Settings {
     pub require_name: bool,
     pub require_email: bool,
     pub moderate_all: bool,
+    pub max_depth: u8,
     pub default_admin_username: Option<String>,
     pub default_admin_password: Option<String>,
 }
@@ -37,6 +38,7 @@ impl Settings {
         s.set_default("require_name", false)?;
         s.set_default("require_email", false)?;
         s.set_default("moderate_all", false)?;
+        s.set_default("max_depth", 6)?;
         s.merge(Environment::with_prefix("UNCOMMENT"))?;
         s.try_into()
     }
