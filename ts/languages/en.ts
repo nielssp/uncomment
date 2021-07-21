@@ -1,5 +1,5 @@
 
-const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export const language = {
     comments: (n: number) => n === 1 ? '1 comment' : `${n} comments`,
@@ -11,6 +11,7 @@ export const language = {
     reply: 'Reply',
     cancel: 'Cancel',
     anonymous: 'Anonymous',
+    pendingReview: 'Pending review',
     loadComments: 'Load comments',
     commentLoadError: 'Comments failed to load',
     missingContentError: 'Comment cannot be empty',

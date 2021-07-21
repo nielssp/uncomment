@@ -127,7 +127,7 @@ async fn post_comment(
     let mut unsafe_html = String::new();
     pulldown_cmark::html::push_html(&mut unsafe_html, parser);
     let safe_html = ammonia::clean(&*unsafe_html);
-    let comment = comments::post_comment(&pool, thread.id, parent.as_ref(), NewComment {
+    let comment = comments::post_comment(&pool, thread.id, parent.as_ref(), settings.max_depth, NewComment {
         name: data.name.clone(),
         email: data.email.clone(),
         website: data.website.clone(),

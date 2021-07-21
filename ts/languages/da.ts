@@ -11,6 +11,7 @@ export const language = {
     reply: 'Svar',
     cancel: 'Annullér',
     anonymous: 'Anonym',
+    pendingReview: 'Afventer godkendelse',
     loadComments: 'Hent kommentarer',
     commentLoadError: 'Kommentarerne kunne ikke indlæses',
     missingContentError: 'Kommentaren kan ikke være tom',

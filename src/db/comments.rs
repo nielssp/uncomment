@@ -276,7 +276,8 @@ pub async fn post_comment(
     pool: &Pool,
     thread_id: i64,
     parent: Option<&CommentPosition>,
-    data: NewComment
+    max_depth: u8,
+    data: NewComment,
 ) -> Result<PublicComment, DbError> {
     let now = Utc::now();
     let conn = pool.check_out().await?;
@@ -304,6 +305,7 @@ pub async fn post_comment(
         .or_else(|| p.level4_id.map(|_| id))).flatten();
     let level6 = parent.map(|p| p.level6_id
         .or_else(|| p.level5_id.map(|_| id))).flatten();
+    let visible_parent_id = get_parent_id(id, [Some(level1), level2, level3, level4, level5, level6], max_depth);
     conn.update(Update::table("comments")
         .set("level1_id", level1)
         .set("level2_id", level2.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
@@ -314,7 +316,7 @@ pub async fn post_comment(
         .so_that("id".equals(id))).await?;
     Ok(PublicComment {
         id,
-        parent_id,
+        parent_id: visible_parent_id,
         name: data.name,
         website: data.website,
         html: data.html,

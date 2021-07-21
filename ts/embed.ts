@@ -59,6 +59,7 @@ interface Config {
 
 interface Comment {
     id: number;
+    parent_id: number;
     name: string;
     website: string;
     html: string;
@@ -137,9 +138,16 @@ function createCommentForm(
     };
 }
 
-function addCommentToContainer(config: Config, container: Element, comment: Comment, atStart = false) {
+function addCommentToContainer(
+    config: Config,
+    container: Element,
+    comment: Comment,
+    allComments: Record<number, CommentTemplate>,
+    atStart = false,
+) {
     const temp = document.createElement('div');
     const template = applyTemplate<CommentTemplate>(temp, commentTemplate);
+    allComments[comment.id] = template;
     template.comment.id = `comment-${comment.id}`;
     if (!comment.name) {
         comment.name = language.anonymous;
@@ -155,10 +163,14 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
     }
     const permalink = document.createElement('a');
     const created = new Date(comment.created_timestamp * 1000);
+    if (comment.approved) {
     permalink.textContent = config.relativeDates ? getRelative(created) : language.date(created);
+    } else {
+        permalink.textContent = language.pendingReview;
+    }
     permalink.href = `#${template.comment.id}`;
     template.created.appendChild(permalink);
-    if (config.relativeDates) {
+    if (config.relativeDates || !comment.approved) {
         template.created.title = language.date(created);
     }
     template.created.dateTime = created.toISOString();
@@ -173,11 +185,13 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
                 template.replyLink.textContent = language.reply;
             } else {
                 createCommentForm(config, template.replyForm, comment.id, reply => {
-                    const elem = addCommentToContainer(config, template.replies, reply, config.newestFirst);
                     template.replyForm.innerHTML = '';
                     replyFormOpen = false;
                     template.replyLink.textContent = language.reply;
-                    elem.scrollIntoView();
+                    if (allComments[reply.parent_id]) {
+                        const elem = addCommentToContainer(config, allComments[reply.parent_id].replies, reply, allComments, config.newestFirst);
+                        elem.scrollIntoView();
+                    }
                 });
                 replyFormOpen = true;
                 template.replyLink.textContent = language.cancel;
@@ -186,7 +200,7 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
     } else {
         template.replyLink.style.display = 'none';
     }
-    comment.replies.forEach(reply => addCommentToContainer(config, template.replies, reply));
+    comment.replies.forEach(reply => addCommentToContainer(config, template.replies, reply, allComments));
     if (atStart && container.children.length) {
         return container.insertBefore(temp.children[0], container.children[0]);
     } else {
@@ -194,7 +208,7 @@ function addCommentToContainer(config: Config, container: Element, comment: Comm
     }
 }
 
-async function loadComments(config: Config, container: Element) {
+async function loadComments(config: Config, container: Element, allComments: Record<number, CommentTemplate>) {
     try {
         const response = await fetch(`${config.api}/comments?t=${config.id}&newest_first=${config.newestFirst}`);
         if (!response.ok) {
@@ -202,7 +216,7 @@ async function loadComments(config: Config, container: Element) {
         }
         const comments: Comment[] = await response.json();
         for (let comment of comments) {
-            addCommentToContainer(config, container, comment);
+            addCommentToContainer(config, container, comment, allComments);
         }
     } catch (error) {
         console.error('Unable to fetch comments', error);
@@ -215,19 +229,20 @@ async function loadComments(config: Config, container: Element) {
         container.appendChild(retry);
         retry.onclick = () => {
             container.innerHTML = '';
-            loadComments(config, container);
+            loadComments(config, container, allComments);
         };
     }
 }
 
 function load(config: Config) {
+    const allComments: Record<number, CommentTemplate> = {};
     config.target.classList.add('uncomment');
     const main = applyTemplate<MainTemplate>(config.target, mainTemplate);
     main.commentCount.setAttribute('data-uncomment-count', config.id);
     initCommentCounts(config.api);
     createCommentForm(config, main.newCommentForm, undefined, (comment, template) => {
         template.content.value = '';
-        const elem = addCommentToContainer(config, main.comments, comment, config.newestFirst);
+        const elem = addCommentToContainer(config, main.comments, comment, allComments, config.newestFirst);
         elem.scrollIntoView();
     });
     if (config.clickToLoad) {
@@ -236,10 +251,10 @@ function load(config: Config) {
         main.comments.appendChild(button);
         button.onclick = () => {
             main.comments.innerHTML = '';
-            loadComments(config, main.comments);
+            loadComments(config, main.comments, allComments);
         };
     } else {
-        loadComments(config, main.comments);
+        loadComments(config, main.comments, allComments);
     }
 }
 

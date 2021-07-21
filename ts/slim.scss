@@ -76,6 +76,10 @@
 
         .comment-actions {
             font-size: 0.8em;
+
+            & + form {
+                margin-top: 0.5em;
+            }
         }
 
         .replies {
