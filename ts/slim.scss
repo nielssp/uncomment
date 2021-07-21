@@ -61,6 +61,7 @@
         .comment-header {
             font-size: 0.8em;
             margin-bottom: 0.5em;
+            transition: background-color 0.5s;
 
             & > .author {
                 font-weight: bold;
@@ -84,6 +85,12 @@
 
         .replies {
             margin-left: 4em;
+        }
+
+        &:target {
+            & > .comment-header {
+                background-color: rgba(255, 255, 0, 0.1);
+            }
         }
     }
 }
