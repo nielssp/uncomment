@@ -7,7 +7,7 @@
 
 use std::{cmp, collections::HashMap, convert::{TryFrom, TryInto}, fmt};
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Utc};
 use quaint::{pooled::PooledConnection, prelude::*};
 
 use crate::db::{Page, Pool, DbError, insert_id};
@@ -264,7 +264,7 @@ pub async fn get_comment_position(pool: &Pool, id: i64) -> Result<Option<Comment
     }
 }
 
-pub async fn count_comments_by_ip(pool: &Pool, ip: &str, since: DateTime<Local>) -> Result<i64, DbError> {
+pub async fn count_comments_by_ip(pool: &Pool, ip: &str, since: DateTime<Utc>) -> Result<i64, DbError> {
     let conn = pool.check_out().await?;
     let result = conn.select(Select::from_table("comments")
         .value(count(asterisk()))
@@ -278,7 +278,7 @@ pub async fn post_comment(
     parent: Option<&CommentPosition>,
     data: NewComment
 ) -> Result<PublicComment, DbError> {
-    let now = Local::now();
+    let now = Utc::now();
     let conn = pool.check_out().await?;
     let parent_id = parent.map(|p| p.level6_id.unwrap_or(p.id));
     let id = insert_id(conn.insert(Insert::single_into("comments")

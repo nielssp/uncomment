@@ -9,7 +9,7 @@ import { getRelative } from './util';
 
 require('./slim.scss');
 
-const mainTemplate = '<div data-bind="commentCount"></div><form data-bind="newCommentForm"></form><div class="comments" data-bind="comments"></div>';
+const mainTemplate = '<div data-bind="commentCount" class="comment-count"></div><form data-bind="newCommentForm"></form><div class="comments" data-bind="comments"></div>';
 const formTemplate = `<div class="commenter-info"><input type="text" name="name" data-bind="name" placeholder="${language.name}"/><input type="email" name="email" data-bind="email" placeholder="${language.email}"/><input type="url" name="website" data-bind="website" placeholder="${language.website}"/></div><textarea name="content" data-bind="content" placeholder="${language.comment}" required></textarea><div class="buttons"><button type="submit">${language.submit}</button></div>`;
 const commentTemplate = `<div class="comment" data-bind="comment"><div class="comment-header"><span class="author" data-bind="author"></span><time data-bind="created"></time></div><div class="comment-body" data-bind="content"></div><div class="comment-actions"><a href="#" data-bind="replyLink">${language.reply}</a></div><form data-bind="replyForm"></form><div class="replies" data-bind="replies"></div></div>`;
 

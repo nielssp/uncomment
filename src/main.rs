@@ -6,7 +6,7 @@
 //! Uncomment server
 
 use actix_web::{App, HttpResponse, HttpServer, ResponseError, error, get, post, web};
-use chrono::{Duration, Local};
+use chrono::{Duration, Utc};
 use db::{DbError, Pool, comments::{self, CommentStatus, NewComment}, threads::{self, NewThread}};
 use dotenv::dotenv;
 use log::{debug, info};
@@ -75,7 +75,7 @@ async fn post_comment(
 ) -> actix_web::Result<HttpResponse> {
     let ip = request.peer_addr().map(|a| a.ip().to_string()).unwrap_or("".to_owned());
     if settings.rate_limit > 0 {
-        let count = comments::count_comments_by_ip(&pool, &ip, Local::now() - Duration::minutes(settings.rate_limit_interval)).await?;
+        let count = comments::count_comments_by_ip(&pool, &ip, Utc::now() - Duration::minutes(settings.rate_limit_interval)).await?;
         info!("rate limit: {} / {} comments in the past {} minutes", count, settings.rate_limit,
             settings.rate_limit_interval);
         if count >= settings.rate_limit {
@@ -151,6 +151,8 @@ async fn main() -> std::io::Result<()> {
     let pool: Pool = db::install(&settings).await.unwrap();
 
     auth::install(&pool, &settings).await.unwrap();
+
+    auth::cleanup(&pool).await.unwrap();
 
     let address = settings.listen.clone();
 

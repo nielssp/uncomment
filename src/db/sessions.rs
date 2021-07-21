@@ -8,7 +8,7 @@
 use std::convert::TryInto;
 
 use quaint::prelude::*;
-use chrono::{DateTime, FixedOffset, Local};
+use chrono::{DateTime, FixedOffset, Utc};
 
 use crate::db::{Pool, DbError};
 
@@ -56,7 +56,7 @@ pub async fn get_session(pool: &Pool, session_id: &str) -> Result<Option<Session
     }
 }
 
-pub async fn create_session(pool: &Pool, session_id: &str, valid_until: DateTime<Local>, user_id: i64) -> Result<(), DbError> {
+pub async fn create_session(pool: &Pool, session_id: &str, valid_until: DateTime<Utc>, user_id: i64) -> Result<(), DbError> {
     let conn = pool.check_out().await?;
     conn.insert(Insert::single_into("sessions")
         .value("id", session_id)
@@ -69,5 +69,11 @@ pub async fn create_session(pool: &Pool, session_id: &str, valid_until: DateTime
 pub async fn delete_session(pool: &Pool, session_id: &str) -> Result<(), DbError> {
     let conn = pool.check_out().await?;
     conn.delete(Delete::from_table("sessions").so_that("id".equals(session_id))).await?;
+    Ok(())
+}
+
+pub async fn delete_expired_sessions(pool: &Pool) -> Result<(), DbError> {
+    let conn = pool.check_out().await?;
+    conn.delete(Delete::from_table("sessions").so_that("valid_until".less_than(Utc::now().to_rfc3339()))).await?;
     Ok(())
 }

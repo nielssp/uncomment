@@ -7,7 +7,7 @@
 
 use actix_web::{HttpMessage, HttpResponse, cookie::Cookie, delete, error, get, post, put, web};
 use argonautica::{Hasher, Verifier};
-use chrono::{Duration, Local};
+use chrono::{Duration, Utc};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 
@@ -59,7 +59,7 @@ pub async fn validate_session(
         Some(cookie) => {
             let session = sessions::get_session(pool, cookie.value()).await?
                 .ok_or_else(|| error::ErrorUnauthorized("UNAUTHORIZED"))?;
-            if session.valid_until >= Local::now() {
+            if session.valid_until >= Utc::now() {
                 Ok(session)
             } else {
                 info!("session expired");
@@ -140,7 +140,7 @@ async fn create_auth(
                 info!("user not found by id: {}", password.user_id);
                 error::ErrorBadRequest("INVALID_CREDENTIALS")
             })?;
-        sessions::create_session(&pool, &session_id, Local::now() + Duration::hours(1), user.id).await?;
+        sessions::create_session(&pool, &session_id, Utc::now() + Duration::hours(1), user.id).await?;
         Ok(HttpResponse::Ok()
             .cookie(Cookie::build("uncomment_session", session_id)
                 .max_age(time::Duration::hours(1))
@@ -210,5 +210,11 @@ pub async fn install(pool: &Pool, settings: &Settings) -> actix_web::Result<()> 
             admin: true,
         }).await?;
     }
+    Ok(())
+}
+
+pub async fn cleanup(pool: &Pool) -> actix_web::Result<()> {
+    info!("Deleting expired sessions...");
+    sessions::delete_expired_sessions(pool).await?;
     Ok(())
 }
