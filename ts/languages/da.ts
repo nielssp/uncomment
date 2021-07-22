@@ -1,6 +1,3 @@
-
-const months = ['januar', 'februar', 'marts', 'april', 'maj', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'december'];
-
 export const language = {
     comments: (n: number) => n === 1 ? '1 kommentar' : `${n} kommentarer`,
     name: 'Navn',
