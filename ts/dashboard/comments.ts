@@ -3,7 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { language } from "../languages/default";
 import { getRelative } from "../util";
 import { Api, ApiPage } from "./api";
 import { Page, Router } from "./router";
@@ -41,6 +40,14 @@ type Filter = {
     type: 'id',
     value: number,
 };
+
+const dateFormat = new Intl.DateTimeFormat([], {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+});
 
 export class Comments implements Page {
     offset = 0;
@@ -282,7 +289,7 @@ class CommentRow {
         this.update(comment);
         const created = new Date(comment.created_timestamp * 1000);
         template.created.textContent = getRelative(created);
-        template.created.title = language.date(created);
+        template.created.title = dateFormat.format(created);
         template.created.dateTime = created.toISOString();
         template.more.onclick = e => this.more(e);
         template.replies.textContent = (n => n === 1 ? `${n} reply` : `${n} replies`)(comment.replies);

@@ -2,7 +2,7 @@ const webpack = require('webpack');
 const path = require('path');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
-const languages = ['en', 'da'];
+const languages = ['en', 'en-GB', 'en-US', 'da'];
 
 module.exports = languages.map(language => {
     return {
@@ -38,6 +38,9 @@ module.exports = languages.map(language => {
                 /languages\/default$/,
                 './languages/' + language
             ),
+            new webpack.DefinePlugin({
+                'LANGUAGE': JSON.stringify(language),
+            }),
         ],
     };
 }).concat([

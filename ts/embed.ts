@@ -13,6 +13,16 @@ const mainTemplate = '<div data-bind="commentCount" class="comment-count"></div>
 const formTemplate = `<div class="commenter-info"><input type="text" name="name" data-bind="name" placeholder="${language.name}"/><input type="email" name="email" data-bind="email" placeholder="${language.email}"/><input type="url" name="website" data-bind="website" placeholder="${language.website}"/></div><textarea name="content" data-bind="content" placeholder="${language.comment}" required></textarea><div class="buttons"><button type="submit">${language.submit}</button></div>`;
 const commentTemplate = `<div class="comment" data-bind="comment"><div class="comment-header"><span class="author" data-bind="author"></span><time data-bind="created"></time></div><div class="comment-body" data-bind="content"></div><div class="comment-actions"><a href="#" data-bind="replyLink">${language.reply}</a></div><form data-bind="replyForm"></form><div class="replies" data-bind="replies"></div></div>`;
 
+declare const LANGUAGE: string;
+
+const dateFormat = new Intl.DateTimeFormat(LANGUAGE, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+});
+
 function applyTemplate<T extends {}>(target: Element, template: string): T {
     const bindings: any = {};
     target.innerHTML = template;
@@ -164,14 +174,14 @@ function addCommentToContainer(
     const permalink = document.createElement('a');
     const created = new Date(comment.created_timestamp * 1000);
     if (comment.approved) {
-    permalink.textContent = config.relativeDates ? getRelative(created) : language.date(created);
+    permalink.textContent = config.relativeDates ? getRelative(created) : dateFormat.format(created);
     } else {
         permalink.textContent = language.pendingReview;
     }
     permalink.href = `#${template.comment.id}`;
     template.created.appendChild(permalink);
     if (config.relativeDates || !comment.approved) {
-        template.created.title = language.date(created);
+        template.created.title = dateFormat.format(created);
     }
     template.created.dateTime = created.toISOString();
     template.content.innerHTML = comment.html;

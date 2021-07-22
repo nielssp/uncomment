@@ -19,9 +19,6 @@ export const language = {
     missingEmailError: 'En email er nødvendig',
     tooManyCommentsError: 'For mange kommentarer',
     unknownError: 'Der opstod en ukendt fejl',
-    date: (d: Date) => {
-        return `${d.getDate()}. ${months[d.getMonth()]} ${d.getFullYear()} ${d.getHours()}:${(d.getMinutes() < 10 ? '0' : '') + d.getMinutes()}`;
-    },
     minutes: (n: number) => n === 1 ? `et minut siden` : `${n} minutter siden`,
     hours: (n: number) => n === 1 ? `en time siden` : `${n} timer siden`,
     days: (n: number) => n === 1 ? `i går` : `${n} dage siden`,

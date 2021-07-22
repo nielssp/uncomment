@@ -1,5 +1,5 @@
 
-const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export const language = {
     comments: (n: number) => n === 1 ? '1 comment' : `${n} comments`,
@@ -19,9 +19,6 @@ export const language = {
     missingEmailError: 'An email is required',
     tooManyCommentsError: 'Too many comments',
     unknownError: 'An unknown error occurred',
-    date: (d: Date) => {
-        return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${d.getHours()}:${(d.getMinutes() < 10 ? '0' : '') + d.getMinutes()}`;
-    },
     minutes: (n: number) => n === 1 ? `a minute ago` : `${n} minutes ago`,
     hours: (n: number) => n === 1 ? `an hour ago` : `${n} hours ago`,
     days: (n: number) => n === 1 ? `yesterday` : `${n} days ago`,

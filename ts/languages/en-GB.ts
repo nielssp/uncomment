@@ -1,0 +1,1 @@
+export {language} from './en';
