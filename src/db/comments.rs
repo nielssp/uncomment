@@ -52,6 +52,7 @@ pub struct PublicComment {
     pub replies: Vec<PublicComment>,
 }
 
+#[derive(Clone, Copy)]
 pub struct CommentPosition {
     pub id: i64,
     pub thread_id: i64,
@@ -72,6 +73,7 @@ pub struct NewComment {
     pub html: String,
     pub markdown: String,
     pub status: CommentStatus,
+    pub created: DateTime<Utc>,
 }
 
 #[derive(serde::Serialize)]
@@ -272,27 +274,24 @@ pub async fn count_comments_by_ip(pool: &Pool, ip: &str, since: DateTime<Utc>) -
     Ok(result.first().and_then(|row| row[0].as_i64()).unwrap_or(0))
 }
 
-pub async fn post_comment(
-    pool: &Pool,
+pub async fn insert_comment(
+    conn: &PooledConnection,
     thread_id: i64,
     parent: Option<&CommentPosition>,
-    max_depth: u8,
-    data: NewComment,
-) -> Result<PublicComment, DbError> {
-    let now = Utc::now();
-    let conn = pool.check_out().await?;
+    data: &NewComment,
+) -> Result<CommentPosition, DbError> {
     let parent_id = parent.map(|p| p.level6_id.unwrap_or(p.id));
     let id = insert_id(conn.insert(Insert::single_into("comments")
         .value("thread_id", thread_id)
         .value("parent_id", parent_id.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
         .value("name", data.name.as_str())
-        .value("email", data.email)
+        .value("email", data.email.clone())
         .value("website", data.website.as_str())
-        .value("ip", data.ip)
+        .value("ip", data.ip.clone())
         .value("html", data.html.as_str())
-        .value("markdown", data.markdown)
+        .value("markdown", data.markdown.clone())
         .value("status", data.status.to_string())
-        .value("created", now.to_rfc3339())
+        .value("created", data.created.to_rfc3339())
         .build()).await?)?;
     let level1 = parent.map(|p| p.level1_id).flatten().unwrap_or(id);
     let level2 = parent.map(|p| p.level2_id
@@ -305,7 +304,6 @@ pub async fn post_comment(
         .or_else(|| p.level4_id.map(|_| id))).flatten();
     let level6 = parent.map(|p| p.level6_id
         .or_else(|| p.level5_id.map(|_| id))).flatten();
-    let visible_parent_id = get_parent_id(id, [Some(level1), level2, level3, level4, level5, level6], max_depth);
     conn.update(Update::table("comments")
         .set("level1_id", level1)
         .set("level2_id", level2.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
@@ -314,14 +312,39 @@ pub async fn post_comment(
         .set("level5_id", level5.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
         .set("level6_id", level6.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
         .so_that("id".equals(id))).await?;
-    Ok(PublicComment {
+    Ok(CommentPosition {
         id,
+        thread_id,
+        level1_id: Some(level1),
+        level2_id: level2,
+        level3_id: level3,
+        level4_id: level4,
+        level5_id: level5,
+        level6_id: level6,
+        status: data.status,
+    })
+}
+
+pub async fn post_comment(
+    pool: &Pool,
+    thread_id: i64,
+    parent: Option<&CommentPosition>,
+    max_depth: u8,
+    data: NewComment,
+) -> Result<PublicComment, DbError> {
+    let conn = pool.check_out().await?;
+    let position = insert_comment(&conn, thread_id, parent, &data).await?;
+    let visible_parent_id = get_parent_id(position.id, [
+        position.level1_id, position.level2_id, position.level3_id, position.level4_id, position.level5_id,
+        position.level6_id], max_depth);
+    Ok(PublicComment {
+        id: position.id,
         parent_id: visible_parent_id,
         name: data.name,
         website: data.website,
         html: data.html,
-        created: now.to_rfc3339(),
-        created_timestamp: now.timestamp(),
+        created: data.created.to_rfc3339(),
+        created_timestamp: data.created.timestamp(),
         approved: data.status == CommentStatus::Approved,
         replies: vec![],
     })

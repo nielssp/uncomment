@@ -33,7 +33,7 @@ pub type Pool = Quaint;
 pub enum DbError {
     #[error("quaint error")]
     QuaintError(#[from] quaint::error::Error),
-    #[error("chrono error")]
+    #[error("date parsing error")]
     ChronoError(#[from] chrono::ParseError),
     #[error("column type error")]
     ColumnTypeError,

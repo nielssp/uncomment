@@ -60,10 +60,10 @@ export class Api {
         const url = `${this.baseUrl}/${path}`;
         const response = await fetch(url, {
             method: 'POST',
-            headers: {
+            headers: data instanceof FormData ? {} : {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(data),
+            body: data instanceof FormData ? data : JSON.stringify(data),
         });
         await this.handleError(response);
         if (response.status === 204) {

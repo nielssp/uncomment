@@ -19,6 +19,7 @@ mod db;
 mod auth;
 mod admin;
 mod settings;
+mod import;
 
 #[derive(Deserialize)]
 struct CountQuery {
@@ -126,7 +127,7 @@ async fn post_comment(
     let parser = Parser::new(data.content.as_str());
     let mut unsafe_html = String::new();
     pulldown_cmark::html::push_html(&mut unsafe_html, parser);
-    let safe_html = ammonia::clean(&*unsafe_html);
+    let safe_html = ammonia::clean(&unsafe_html);
     let comment = comments::post_comment(&pool, thread.id, parent.as_ref(), settings.max_depth, NewComment {
         name: data.name.clone(),
         email: data.email.clone(),
@@ -135,6 +136,7 @@ async fn post_comment(
         markdown: data.content.clone(),
         html: safe_html,
         status: if settings.moderate_all { CommentStatus::Pending } else { CommentStatus::Approved },
+        created: Utc::now(),
     }).await?;
     Ok(HttpResponse::Ok().json(comment))
 }

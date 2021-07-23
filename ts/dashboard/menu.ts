@@ -13,6 +13,7 @@ export class Menu {
             comments: HTMLLinkElement,
             threads: HTMLLinkElement,
             users: HTMLLinkElement,
+            import: HTMLLinkElement,
             changePassword: HTMLLinkElement,
             logOut: HTMLLinkElement,
             logIn: HTMLLinkElement,
@@ -25,6 +26,7 @@ export class Menu {
         services.router.link(template.comments, ['comments']);
         services.router.link(template.threads, ['threads']);
         services.router.link(template.users, ['users']);
+        services.router.link(template.import, ['import']);
         services.router.link(template.changePassword, ['change-password']);
         template.logOut.onclick = e => this.logOut(e);
         template.logIn.onclick = e => this.logIn(e);
@@ -47,10 +49,12 @@ export class Menu {
             this.template.comments.style.display = '';
             this.template.threads.style.display = '';
             this.template.users.style.display = '';
+            this.template.import.style.display = '';
         } else {
             this.template.comments.style.display = 'none';
             this.template.threads.style.display = 'none';
             this.template.users.style.display = 'none';
+            this.template.import.style.display = 'none';
         }
         if (user) {
             this.template.changePassword.style.display = '';

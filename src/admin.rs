@@ -5,10 +5,14 @@
 
 //! Uncomment dashboard API
 
+use actix_multipart::Multipart;
 use actix_web::{HttpResponse, delete, error, get, put, post, web};
+use log::info;
 use pulldown_cmark::Parser;
+use futures::{TryStreamExt, StreamExt};
+use std::io::{Seek, SeekFrom, Write};
 
-use crate::{auth::{self, hash_password}, db::{Pool, comments::{self, CommentFilter, CommentStatus, UpdateComment}, threads::{self, NewThread, UpdateThread}, users::{self, NewUser, UpdateUser}}, settings::Settings};
+use crate::{auth::{self, hash_password}, db::{Pool, comments::{self, CommentFilter, CommentStatus, UpdateComment}, threads::{self, NewThread, UpdateThread}, users::{self, NewUser, UpdateUser}}, import, settings::Settings};
 
 #[derive(serde::Deserialize)]
 struct CommentQuery {
@@ -228,6 +232,27 @@ async fn delete_user(
     Ok(HttpResponse::NoContent().body(""))
 }
 
+#[post("/admin/import")]
+async fn import_comments(
+    request: web::HttpRequest,
+    pool: web::Data<Pool>,
+    mut payload: Multipart,
+) -> actix_web::Result<HttpResponse> {
+    auth::validate_admin_session(request, &pool).await?;
+    while let Some(mut field) = payload.try_next().await? {
+        let mut f = web::block(|| tempfile::tempfile()).await?;
+        while let Some(chunk) = field.next().await {
+            let data = chunk.unwrap();
+            f = web::block(move || f.write_all(&data).map(|_| f)).await?;
+        }
+        f = web::block(move || f.seek(SeekFrom::Start(0)).map(|_| f)).await?;
+        info!("Importing comments from XML file");
+        let comments = web::block(move || import::read_xml_comments(f)).await?;
+        import::insert_imported_comments(&pool, comments).await?;
+    }
+    Ok(HttpResponse::NoContent().body(""))
+}
+
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(get_comments)
@@ -243,6 +268,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(create_user)
         .service(get_user)
         .service(update_user)
-        .service(delete_user);
+        .service(delete_user)
+        .service(import_comments);
 }
 

@@ -15,6 +15,7 @@
           <li><a href="#comments" data-bind="comments">Comments</a></li>
           <li><a href="#threads" data-bind="threads">Threads</a></li>
           <li><a href="#users" data-bind="users">Users</a></li>
+          <li><a href="#import" data-bind="import">Import</a></li>
           <li><a href="#change-password" data-bind="changePassword">Change Password</a></li>
           <li><a href="#" data-bind="logOut">Log Out</a></li>
           <li><a href="#" data-bind="logIn">Log In</a></li>
@@ -145,6 +146,18 @@
               <button data-bind="prev">←</button>
               <button data-bind="next">→</button>
             </div>
+          </div>
+        </div>
+        <div id="import" style="display: none;">
+          <div class="box small padding">
+            <div class="info warning" data-bind="info"></div>
+            <form data-bind="form">
+              <div class="field">
+                <label for="import-file">File (XML)</label>
+                <input type="file" name="file" id="import-file" />
+              </div>
+              <button type="submit" data-bind="submit">Import Comments</button>
+            </form>
           </div>
         </div>
         <div id="change-password" style="display: none;">

@@ -7,6 +7,7 @@ import { Api } from "./api";
 import { Auth } from "./auth";
 import { ChangePassword } from "./change-password";
 import { Comments } from "./comments";
+import { Import } from "./import";
 import { Login } from "./login";
 import { Menu } from "./menu";
 import { Router } from "./router";
@@ -25,6 +26,7 @@ const router = new Router({
     'comments': router => createComponent(Comments, document.getElementById('comments')!, {api, router}),
     'threads': router => createComponent(Threads, document.getElementById('threads')!, {api, router}),
     'users': router => createComponent(Users, document.getElementById('users')!, {api, router}),
+    'import': router => createComponent(Import, document.getElementById('import')!, {api, router}),
     'change-password': router => createComponent(ChangePassword, document.getElementById('change-password')!,
         {api, router}),
 });
