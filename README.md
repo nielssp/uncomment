@@ -11,6 +11,7 @@ Uncomment is a commenting system for blogs and static sites written in Rust and 
 * Markdown
 * Moderation
 * SQLite
+* Import from Disqus
 
 ## Todo
 
