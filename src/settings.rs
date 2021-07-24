@@ -10,6 +10,7 @@ use config::{Config, ConfigError, Environment};
 #[derive(serde::Deserialize, Clone)]
 pub struct Settings {
     pub listen: String,
+    pub host: String,
     pub sqlite_database: String,
     pub secret_key: String,
     pub argon2_iterations: u32,
@@ -17,6 +18,7 @@ pub struct Settings {
     pub rate_limit: i64,
     pub rate_limit_interval: i64,
     pub auto_threads: bool,
+    pub thread_url: Option<String>,
     pub require_name: bool,
     pub require_email: bool,
     pub moderate_all: bool,

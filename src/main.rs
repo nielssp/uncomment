@@ -5,7 +5,7 @@
 
 //! Uncomment server
 
-use actix_web::{App, HttpResponse, HttpServer, ResponseError, error, get, post, web};
+use actix_web::{App, HttpResponse, HttpServer, ResponseError, client::Client, error, get, post, web};
 use chrono::{Duration, Utc};
 use db::{DbError, Pool, comments::{self, CommentStatus, NewComment}, threads::{self, NewThread}};
 use dotenv::dotenv;
@@ -87,7 +87,17 @@ async fn post_comment(
         Some(t) => Ok(t),
         None => {
             if settings.auto_threads {
-                // TODO: setting to validate thread name by making a GET request to the site
+                if let Some(thread_url) = &settings.thread_url {
+                    let client = Client::default();
+                    let response = client.get(thread_url.replace("%name%", &query.t))
+                        .send()
+                        .await?;
+                    info!("Received thread url status {}", response.status());
+                    if !response.status().is_success() {
+                        Err(error::ErrorBadRequest("THREAD_NOT_FOUND"))?;
+                    }
+                    // TODO: title detection
+                }
                 Ok(threads::create_thread(&pool, NewThread {
                     name: query.t.clone(),
                     title: None,
@@ -159,7 +169,13 @@ async fn main() -> std::io::Result<()> {
     let address = settings.listen.clone();
 
     HttpServer::new(move || {
-        let cors = actix_cors::Cors::permissive();
+        let mut cors = actix_cors::Cors::default()
+            .allow_any_method()
+            .allow_any_header()
+            .allowed_origin(&format!("http://{}", settings.listen));
+        for host in settings.host.split(",") {
+            cors = cors.allowed_origin(host);
+        }
         App::new()
             .wrap(cors)
             .data(pool.clone())
