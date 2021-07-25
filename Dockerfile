@@ -1,4 +1,4 @@
-FROM rust:1.53.0 AS builder
+FROM rust:1.53.0 AS server-builder
 WORKDIR /usr/src/
 RUN rustup target add x86_64-unknown-linux-musl
 RUN apt-get update && apt-get install -y clang musl-tools
@@ -19,8 +19,10 @@ COPY webpack.config.js tsconfig.json ./
 COPY client ./client
 RUN npm run build
 
-FROM scratch
-COPY --from=builder /usr/local/cargo/bin/uncomment .
-COPY --from=client-builder /usr/src/uncomment/dist .
-#USER 1000
+FROM alpine:3
+WORKDIR /app
+COPY --from=server-builder /usr/local/cargo/bin/uncomment .
+COPY --from=client-builder /usr/src/uncomment/dist dist
+VOLUME /db
+ENV UNCOMMENT_SQLITE_DATABASE=/db/data.db
 CMD ["./uncomment"]
