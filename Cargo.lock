@@ -2800,6 +2800,7 @@ dependencies = [
  "pulldown-cmark",
  "quaint",
  "rand 0.8.4",
+ "rusqlite",
  "serde 1.0.126",
  "serde_json",
  "tempfile",

@@ -9,6 +9,7 @@ use std::collections::HashSet;
 
 use log::info;
 use quaint::{pooled::{PooledConnection, Quaint}, prelude::*};
+use rusqlite::params;
 use crate::settings::Settings;
 use thiserror::Error;
 
@@ -33,6 +34,8 @@ pub type Pool = Quaint;
 pub enum DbError {
     #[error("quaint error")]
     QuaintError(#[from] quaint::error::Error),
+    #[error("sqlite error")]
+    SqliteError(#[from] rusqlite::Error),
     #[error("date parsing error")]
     ChronoError(#[from] chrono::ParseError),
     #[error("column type error")]
@@ -67,36 +70,28 @@ pub async fn count_remaining<'a>(
 
 pub async fn install(settings: &Settings) -> Result<Pool, DbError> {
     let pool = Quaint::new(&format!("file:{}", settings.sqlite_database)).await?;
-    let conn = pool.check_out().await?;
     match pool.connection_info() {
-        ConnectionInfo::Sqlite { .. } => {
-            let result = conn.query_raw("pragma table_info('versions')", &[]).await?;
+        ConnectionInfo::Sqlite { file_path, .. } => {
+            let conn = rusqlite::Connection::open(&file_path)?;
+            let mut stmt = conn.prepare("pragma table_info('versions')")?;
+            let mut rows = stmt.query(params![])?;
             let mut versions: HashSet<String> = HashSet::new();
-            if result.is_empty() {
+            if rows.next()?.is_none() {
                 info!("Installing new SQLite3 database...");
-                conn.execute_raw(
-                    "create table versions (
-                        version text not null
-                    )", &[]
-                ).await?;
+                conn.execute("create table versions (version text not null)", params![])?;
             } else {
-                versions = conn.select(Select::from_table("versions").column("version")).await?
-                    .into_iter()
-                    .map(|row| row[0].as_str().map(String::from))
-                    .flatten()
-                    .collect();
+                let mut get_versions = conn.prepare("select version from versions")?;
+                versions = get_versions.query_map(params![], |row| row.get(0)).and_then(Iterator::collect)?;
             }
             for (name, statements) in SQLITE_MIGRATIONS {
                 if versions.contains(name.to_owned()) {
                     continue;
                 }
                 info!("Running migration: {}", name);
-                let tx = conn.start_transaction().await?;
                 for statement in statements.iter() {
-                    tx.execute_raw(statement, &[]).await?;
+                    conn.execute(statement, params![])?;
                 }
-                tx.insert(Insert::single_into("versions").value("version", name.to_owned()).into()).await?;
-                tx.commit().await?;
+                conn.execute("insert into versions values (?1)", [name])?;
             }
         },
     }

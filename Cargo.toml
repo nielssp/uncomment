@@ -35,6 +35,7 @@ ammonia = "3"
 
 # Database
 quaint = { version = "0.1", features = ["sqlite", "pooled", "chrono"] }
+rusqlite = "0.20"
 
 # Auth
 argonautica = "0.2"
