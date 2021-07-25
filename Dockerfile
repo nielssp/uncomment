@@ -23,6 +23,8 @@ FROM alpine:3
 WORKDIR /app
 COPY --from=server-builder /usr/local/cargo/bin/uncomment .
 COPY --from=client-builder /usr/src/uncomment/dist dist
+EXPOSE 8080
 VOLUME /db
 ENV UNCOMMENT_SQLITE_DATABASE=/db/data.db
+ENV UNCOMMENT_LISTEN=0.0.0.0:8080
 CMD ["./uncomment"]
