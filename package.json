@@ -8,6 +8,7 @@
     "watch": "webpack watch --mode=development"
   },
   "devDependencies": {
+    "copy-webpack-plugin": "^9.0.1",
     "css-loader": "^5.2.6",
     "html-loader": "^2.1.2",
     "mini-css-extract-plugin": "^1.6.0",

@@ -1,14 +1,15 @@
 const webpack = require('webpack');
 const path = require('path');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const CopyPlugin = require("copy-webpack-plugin");
 
 const languages = ['en', 'en-GB', 'en-US', 'da'];
 
 module.exports = languages.map(language => {
     return {
         entry: {
-            embed: './ts/embed.ts',
-            count: './ts/count.ts',
+            embed: './client/embed.ts',
+            count: './client/count.ts',
         },
         output: {
             path: path.resolve(__dirname, 'dist/' + language),
@@ -46,7 +47,7 @@ module.exports = languages.map(language => {
 }).concat([
     {
         entry: {
-            dashboard: './ts/dashboard/main.ts',
+            dashboard: './client/dashboard/main.ts',
         },
         module: {
             rules: [
@@ -74,6 +75,11 @@ module.exports = languages.map(language => {
         },
         plugins: [
             new MiniCssExtractPlugin(),
+            new CopyPlugin({
+                patterns: [
+                    { from: './client/dashboard/static', to: '' },
+                ]
+            }),
         ],
     }
 ]);
