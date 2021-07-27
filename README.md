@@ -19,16 +19,40 @@ Uncomment is a commenting system for blogs and static sites written in Rust and 
 * Optional user authentication
 * Optional third party authentication
 * Rule system for automatic moderation
-* Docker
 * Akismet (maybe)
 
 ## Usage
+
+Use docker to pull the latest development version of Uncomment:
+
+```
+docker pull nielssp/uncomment:master
+```
+
+Create a newenvioronment file with at least the following settings:
+
+```
+UNCOMMENT_HOST=https://your-website.com,https://uncomment.your-website.com
+UNCOMMENT_SECRET_KEY=<secret key used (a long with a random salt) for hashing password>
+UNCOMMENT_DEFAULT_ADMIN_USERNAME=admin
+UNCOMMENT_DEFAULT_ADMIN_PASSWORD=<password for first login>
+```
+
+You can generate a random secret key with `openssl rand -base64 20`.
+
+Launch the Uncomment server:
+
+```
+docker run --rm --name uncomment -p 8080:8080 --env-file <your-env-file> -v <path-to-db-dir>:/db nielssp/uncomment:master
+````
+
+Add the following to your website:
 
 ```html
 <div id="comments"></div>
 <script data-uncomment
     data-uncomment-target="#comments"
-    src="http://localhost:5000/en-GB/embed.js"></script>
+    src="https://uncomment.your-website.com/en-GB/embed.js"></script>
 ```
 
 ## Server Configuration
