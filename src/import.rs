@@ -134,7 +134,7 @@ pub fn read_xml_comments(
 
 async fn insert_imported_comment(
     pool: &Pool,
-    thread_id: i64,
+    thread_id: i32,
     parent: Option<&CommentPosition>,
     comment: &ImportComment,
 ) -> Result<CommentPosition, DbError> {

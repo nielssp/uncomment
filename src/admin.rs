@@ -18,8 +18,8 @@ use crate::{auth::{self, hash_password}, db::{Pool, comments::{self, CommentFilt
 struct CommentQuery {
     offset: Option<usize>,
     status: Option<CommentStatus>,
-    parent_id: Option<i64>,
-    thread_id: Option<i64>,
+    parent_id: Option<i32>,
+    thread_id: Option<i32>,
     asc: Option<bool>,
 }
 
@@ -60,7 +60,7 @@ async fn get_comments(
 async fn get_comment(
     request: web::HttpRequest,
     pool: web::Data<Pool>,
-    web::Path(id): web::Path<i64>,
+    web::Path(id): web::Path<i32>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &pool).await?;
     let comment = comments::get_comment(&pool, id).await?.ok_or_else(|| error::ErrorNotFound("NOT_FOUND"))?;
@@ -71,7 +71,7 @@ async fn get_comment(
 async fn update_comment(
     request: web::HttpRequest,
     pool: web::Data<Pool>,
-    web::Path(id): web::Path<i64>,
+    web::Path(id): web::Path<i32>,
     data: web::Json<UpdateCommentData>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &pool).await?;
@@ -100,7 +100,7 @@ async fn update_comment(
 async fn delete_comment(
     request: web::HttpRequest,
     pool: web::Data<Pool>,
-    web::Path(id): web::Path<i64>,
+    web::Path(id): web::Path<i32>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &pool).await?;
     comments::delete_comment(&pool, id).await?;
@@ -131,7 +131,7 @@ async fn create_thread(
 async fn get_thread(
     request: web::HttpRequest,
     pool: web::Data<Pool>,
-    web::Path(id): web::Path<i64>,
+    web::Path(id): web::Path<i32>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &pool).await?;
     let thread = threads::get_thread_by_id(&pool, id).await?.ok_or_else(|| error::ErrorNotFound("NOT_FOUND"))?;
@@ -142,7 +142,7 @@ async fn get_thread(
 async fn update_thread(
     request: web::HttpRequest,
     pool: web::Data<Pool>,
-    web::Path(id): web::Path<i64>,
+    web::Path(id): web::Path<i32>,
     data: web::Json<UpdateThread>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &pool).await?;
@@ -156,7 +156,7 @@ async fn update_thread(
 async fn delete_thread(
     request: web::HttpRequest,
     pool: web::Data<Pool>,
-    web::Path(id): web::Path<i64>,
+    web::Path(id): web::Path<i32>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &pool).await?;
     threads::delete_thread(&pool, id).await?;
@@ -190,7 +190,7 @@ async fn create_user(
 async fn get_user(
     request: web::HttpRequest,
     pool: web::Data<Pool>,
-    web::Path(id): web::Path<i64>,
+    web::Path(id): web::Path<i32>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &pool).await?;
     let user = users::get_user_by_id(&pool, id).await?.ok_or_else(|| error::ErrorNotFound("NOT_FOUND"))?;
@@ -201,7 +201,7 @@ async fn get_user(
 async fn update_user(
     request: web::HttpRequest,
     pool: web::Data<Pool>,
-    web::Path(id): web::Path<i64>,
+    web::Path(id): web::Path<i32>,
     data: web::Json<UpdateUser>,
     settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
@@ -225,7 +225,7 @@ async fn update_user(
 async fn delete_user(
     request: web::HttpRequest,
     pool: web::Data<Pool>,
-    web::Path(id): web::Path<i64>,
+    web::Path(id): web::Path<i32>,
 ) -> actix_web::Result<HttpResponse> {
     auth::validate_admin_session(request, &pool).await?;
     users::delete_user(&pool, id).await?;

@@ -29,7 +29,7 @@ struct CountQuery {
 #[derive(Deserialize)]
 struct CommentQuery {
     t: String,
-    parent_id: Option<i64>,
+    parent_id: Option<i32>,
     newest_first: Option<bool>,
 }
 

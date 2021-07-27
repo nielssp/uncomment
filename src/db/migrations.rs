@@ -50,6 +50,7 @@ pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])]
     ]),
 ];
 
+#[allow(dead_code)]
 pub static POSTGRES_MIGRATIONS: &'static [(&'static str, &'static [&'static str])] = &[
     ("V1_Init", &[
      "create table threads (

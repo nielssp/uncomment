@@ -22,7 +22,7 @@ pub enum Threads {
 
 #[derive(serde::Serialize)]
 pub struct Thread {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
     pub title: Option<String>,
     pub comments: i64,
@@ -75,7 +75,7 @@ pub async fn get_thread_by_name(pool: &Pool, thread_name: &str) -> Result<Option
         .await?.into_iter().next())
 }
 
-pub async fn get_thread_by_id(pool: &Pool, id: i64) -> Result<Option<Thread>, DbError> {
+pub async fn get_thread_by_id(pool: &Pool, id: i32) -> Result<Option<Thread>, DbError> {
     Ok(query_threads(&pool, get_default_thread_query()
             .and_where(Expr::col(Threads::Id).eq(id)))
         .await?.into_iter().next())
@@ -88,7 +88,7 @@ pub async fn create_thread(pool: &Pool, data: NewThread) -> Result<Thread, DbErr
         .values_panic(vec![data.name.as_str().into(), data.title.clone().into()])
         .returning_col(Threads::Id)).await?;
     Ok(Thread {
-        id: id as i64,
+        id: id as i32,
         name: data.name,
         title: data.title,
         comments: 0,
@@ -107,7 +107,7 @@ pub async fn get_threads(pool: &Pool, limit: usize, offset: usize) -> Result<Pag
     Ok(Page { content, remaining, limit })
 }
 
-pub async fn update_thread(pool: &Pool, id: i64, data: UpdateThread) -> Result<(), DbError> {
+pub async fn update_thread(pool: &Pool, id: i32, data: UpdateThread) -> Result<(), DbError> {
     pool.update(Query::update()
         .table(Threads::Table)
         .value(Threads::Title, data.title.into())
@@ -115,7 +115,7 @@ pub async fn update_thread(pool: &Pool, id: i64, data: UpdateThread) -> Result<(
     Ok(())
 }
 
-pub async fn delete_thread(pool: &Pool, id: i64) -> Result<(), DbError> {
+pub async fn delete_thread(pool: &Pool, id: i32) -> Result<(), DbError> {
     pool.delete(Query::delete()
         .from_table(Comments::Table)
         .and_where(Expr::col(Comments::ThreadId).eq(id))).await?;

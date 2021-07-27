@@ -25,7 +25,7 @@ pub enum Users {
 
 #[derive(serde::Serialize)]
 pub struct User {
-    pub id: i64,
+    pub id: i32,
     pub username: String,
     pub name: String,
     pub email: String,
@@ -35,7 +35,7 @@ pub struct User {
 }
 
 pub struct Password {
-    pub user_id: i64,
+    pub user_id: i32,
     pub password: String,
 }
 
@@ -110,7 +110,7 @@ pub async fn get_password_by_username(pool: &Pool, username: &str) -> Result<Opt
     }
 }
 
-pub async fn get_password_by_user_id(pool: &Pool, user_id: i64) -> Result<Option<Password>, DbError> {
+pub async fn get_password_by_user_id(pool: &Pool, user_id: i32) -> Result<Option<Password>, DbError> {
     let result = pool.select_optional(Query::select().from(Users::Table)
         .columns(vec![Users::Id, Users::Password])
         .and_where(Expr::col(Users::Id).eq(user_id)))
@@ -166,7 +166,7 @@ pub async fn create_user(pool: &Pool, new_user: NewUser) -> Result<User, DbError
     })
 }
 
-pub async fn change_password(pool: &Pool, user_id: i64, password: &str) -> Result<(), DbError> {
+pub async fn change_password(pool: &Pool, user_id: i32, password: &str) -> Result<(), DbError> {
     pool.update(Query::update().table(Users::Table)
         .value(Users::Password, password.into())
         .and_where(Expr::col(Users::Id).eq(user_id)))
@@ -174,7 +174,7 @@ pub async fn change_password(pool: &Pool, user_id: i64, password: &str) -> Resul
     Ok(())
 }
 
-pub async fn get_user_by_id(pool: &Pool, id: i64) -> Result<Option<User>, DbError> {
+pub async fn get_user_by_id(pool: &Pool, id: i32) -> Result<Option<User>, DbError> {
     Ok(query_users(pool, get_default_user_query().and_where(Expr::col(Users::Id).eq(id))).await?.into_iter().next())
 }
 
@@ -189,7 +189,7 @@ pub async fn get_users(pool: &Pool, limit: usize, offset: usize) -> Result<Page<
     Ok(Page { content, remaining, limit })
 }
 
-pub async fn update_user(pool: &Pool, id: i64, data: UpdateUser) -> Result<(), DbError> {
+pub async fn update_user(pool: &Pool, id: i32, data: UpdateUser) -> Result<(), DbError> {
     let mut update = Query::update().table(Users::Table)
         .value(Users::Username, data.username.into())
         .value(Users::Name, data.name.into())
@@ -206,7 +206,7 @@ pub async fn update_user(pool: &Pool, id: i64, data: UpdateUser) -> Result<(), D
     Ok(())
 }
 
-pub async fn delete_user(pool: &Pool, id: i64) -> Result<(), DbError> {
+pub async fn delete_user(pool: &Pool, id: i32) -> Result<(), DbError> {
     pool.delete(Query::delete().from_table(Users::Table)
         .and_where(Expr::col(Users::Id).eq(id)))
         .await?;

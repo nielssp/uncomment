@@ -27,7 +27,7 @@ pub struct UpdatePassword {
 
 #[derive(Serialize)]
 pub struct SessionUser {
-    pub id: i64,
+    pub id: i32,
     pub username: String,
     pub name: String,
     pub email: String,

@@ -66,7 +66,7 @@ pub async fn get_session(pool: &Pool, session_id: &str) -> Result<Option<Session
     }
 }
 
-pub async fn create_session(pool: &Pool, session_id: &str, valid_until: DateTime<Utc>, user_id: i64) -> Result<(), DbError> {
+pub async fn create_session(pool: &Pool, session_id: &str, valid_until: DateTime<Utc>, user_id: i32) -> Result<(), DbError> {
     pool.insert(Query::insert().into_table(Sessions::Table)
         .columns(vec![Sessions::Id, Sessions::ValidUntil, Sessions::UserId])
         .values_panic(vec![
@@ -86,7 +86,7 @@ pub async fn delete_session(pool: &Pool, session_id: &str) -> Result<(), DbError
 
 pub async fn delete_expired_sessions(pool: &Pool) -> Result<(), DbError> {
     pool.delete(Query::delete().from_table(Sessions::Table)
-        .and_where(Expr::col(Sessions::ValidUntil).lt(Utc::now().naive_utc())))
+        .and_where(Expr::col(Sessions::ValidUntil).lt(Utc::now().to_rfc3339())))
         .await?;
     Ok(())
 }
