@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Niels Sonnich Poulsen <niels@nielssp.dk>"]
 edition = "2018"
 
+[features]
+postgres = ["sqlx/postgres", "sea-query/sqlx-postgres"]
+
 [dependencies]
 async-std = { version = "1.9", features = ["attributes"] }
 
@@ -36,8 +39,8 @@ pulldown-cmark = "0.8"
 ammonia = "3"
 
 # Database
-sqlx = { version = "0.5", features = ["runtime-async-std-rustls", "sqlite", "postgres", "any", "chrono"] }
-sea-query = { version = "0.12", features = ["sqlx-sqlite", "sqlx-postgres", "with-chrono"] }
+sqlx = { version = "0.5", features = ["runtime-async-std-rustls", "sqlite", "chrono"] }
+sea-query = { version = "0.12", features = ["sqlx-sqlite", "with-chrono"] }
 
 # Auth
 argonautica = "0.2"

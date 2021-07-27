@@ -5,6 +5,7 @@
 
 //! Minimal migration system
 
+#[cfg(not(feature = "postgres"))]
 pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])] = &[
     ("V1_Init", &[
      "create table threads (
@@ -50,7 +51,7 @@ pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])]
     ]),
 ];
 
-#[allow(dead_code)]
+#[cfg(feature = "postgres")]
 pub static POSTGRES_MIGRATIONS: &'static [(&'static str, &'static [&'static str])] = &[
     ("V1_Init", &[
      "create table threads (
