@@ -5,12 +5,16 @@
 
 //! DB queries related to comments and threads
 
-use std::{cmp, collections::HashMap, convert::{TryFrom, TryInto}, fmt};
+use sea_query::{Expr, Func, Iden, Query, SelectStatement, SimpleExpr, Value};
+use sqlx::Row;
+
+use std::{cmp, collections::HashMap, fmt};
 
 use chrono::{DateTime, Utc};
-use quaint::{pooled::PooledConnection, prelude::*};
 
-use crate::db::{Page, Pool, DbError, insert_id};
+use crate::db::{Page, Pool, DbError};
+
+use super::{count_remaining, threads::Threads};
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, PartialEq)]
 pub enum CommentStatus {
@@ -19,17 +23,42 @@ pub enum CommentStatus {
     Rejected,
 }
 
-impl<'a> TryFrom<ParameterizedValue<'a>> for CommentStatus {
-    type Error = DbError;
+#[derive(Iden)]
+pub enum Comments {
+    Table,
+    Id,
+    ThreadId,
+    ParentId,
+    Level1Id,
+    Level2Id,
+    Level3Id,
+    Level4Id,
+    Level5Id,
+    Level6Id,
+    #[allow(dead_code)]
+    UserId,
+    Name,
+    Email,
+    Website,
+    Ip,
+    Html,
+    Markdown,
+    Status,
+    Created,
+}
 
-    fn try_from(value: ParameterizedValue) -> Result<Self, Self::Error> {
-        let s = value.as_str().ok_or(DbError::ColumnTypeError)?;
-        match s {
-            "Pending" => Ok(CommentStatus::Pending),
-            "Approved" => Ok(CommentStatus::Approved),
-            "Rejected" => Ok(CommentStatus::Rejected),
-            _ => Err(DbError::ColumnTypeError),
-        }
+fn convert_comment_status(value: &str) -> Result<CommentStatus, DbError> {
+    match value {
+        "Pending" => Ok(CommentStatus::Pending),
+        "Approved" => Ok(CommentStatus::Approved),
+        "Rejected" => Ok(CommentStatus::Rejected),
+        _ => Err(DbError::ColumnTypeError),
+    }
+}
+
+impl Into<Value> for CommentStatus {
+    fn into(self) -> Value {
+        self.to_string().into()
     }
 }
 
@@ -110,17 +139,17 @@ pub struct UpdateComment {
 }
 
 pub async fn count_comments_by_thread(pool: &Pool, thread_names: Vec<&str>) -> Result<HashMap<String, i64>, DbError> {
-    let conn = pool.check_out().await?;
-    let mut rows = conn.select(Select::from_table("comments".alias("c"))
-        .value(Column::from(("t", "name")))
-        .value(count(asterisk()))
-        .inner_join("threads".alias("t").on(("t", "id").equals(Column::from(("c", "thread_id")))))
-        .so_that(("t", "name").in_selection(thread_names))
-        .and_where(("c", "status").equals("Approved"))
-        .group_by(Column::from(("t", "name")))).await?.into_iter();
+    let mut rows = pool.select(Query::select()
+        .column((Threads::Table, Threads::Name))
+        .expr(Expr::count(Expr::tbl(Comments::Table, Comments::Id)))
+        .from(Comments::Table)
+        .inner_join(Threads::Table, Expr::tbl(Threads::Table, Threads::Id).equals(Comments::Table, Comments::ThreadId))
+        .and_where(Expr::tbl(Threads::Table, Threads::Name).is_in(thread_names))
+        .and_where(Expr::tbl(Comments::Table, Comments::Status).eq(CommentStatus::Approved))
+        .group_by_col((Threads::Table, Threads::Name))).await?.into_iter();
     let mut result = HashMap::new();
     while let Some(row) = rows.next() {
-        result.insert(row[0].clone().try_into()?, row[1].clone().try_into()?);
+        result.insert(row.try_get(0)?, row.try_get(1)?);
     }
     Ok(result)
 }
@@ -145,7 +174,7 @@ fn get_comment_order(newest_first: bool, max_depth: u8) -> String {
         if max_depth > 0 {
             order.push_str("c.level1_id desc,");
         }
-        for i in 1..max_depth {
+        for i in 2..max_depth {
             order.push_str(&format!("case when c.level{}_id is null then 0 else 1 end asc, c.level{}_id desc,",
                     i, i));
         }
@@ -154,7 +183,7 @@ fn get_comment_order(newest_first: bool, max_depth: u8) -> String {
         if max_depth > 0 {
             order.push_str("c.level1_id asc,");
         }
-        for i in 1..=max_depth {
+        for i in 2..=max_depth {
             order.push_str(&format!("c.level{}_id asc,", i));
         }
         order.push_str("c.id asc");
@@ -188,36 +217,36 @@ pub async fn get_comment_thread(
     mut max_depth: u8,
 ) -> Result<Vec<PublicComment>, DbError> {
     max_depth = cmp::max(0, cmp::min(6, max_depth));
-    let conn = pool.check_out().await?;
-    let mut rows = conn.query_raw(
+    let mut rows = sqlx::query(
         &format!("select c.id, c.parent_id, c.level1_id, c.level2_id, c.level3_id, c.level4_id, c.level5_id, \
                     c.level6_id, c.name, c.website, c.html, c.created \
                     from comments c \
                     inner join threads t on t.id = c.thread_id \
-                    where t.name = ? \
+                    where t.name = $1 \
                     and c.status = 'Approved'
-                    order by {}", get_comment_order(newest_first, max_depth)), &[ParameterizedValue::from(thread_name)])
+                    order by {}", get_comment_order(newest_first, max_depth)))
+        .bind(thread_name)
+        .fetch_all(&pool.pool)
         .await?
         .into_iter();
     let mut root = Vec::new();
     let mut replies: HashMap<i64, Vec<PublicComment>> = HashMap::new();
     while let Some(row) = rows.next() {
-        let created_string: String = row[11].clone().try_into()?;
-        let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
-        let id: i64 = row[0].clone().try_into()?;
-        let level1_id = row[2].as_i64();
-        let level2_id = row[3].as_i64();
-        let level3_id = row[4].as_i64();
-        let level4_id = row[5].as_i64();
-        let level5_id = row[6].as_i64();
-        let level6_id = row[7].as_i64();
+        let created: DateTime<Utc> = row.try_get(11)?;
+        let id: i64 = row.try_get(0)?;
+        let level1_id = row.try_get(2)?;
+        let level2_id = row.try_get(3)?;
+        let level3_id = row.try_get(4)?;
+        let level4_id = row.try_get(5)?;
+        let level5_id = row.try_get(6)?;
+        let level6_id = row.try_get(7)?;
         let parent_id = get_parent_id(id, [level1_id, level2_id, level3_id, level4_id, level5_id, level6_id], max_depth);
         let comment = PublicComment {
             id,
             parent_id,
-            name: row[8].clone().try_into()?,
-            website: row[9].clone().try_into()?,
-            html: row[10].clone().try_into()?,
+            name: row.try_get(8)?,
+            website: row.try_get(9)?,
+            html: row.try_get(10)?,
             created: created.to_rfc3339(),
             created_timestamp: created.timestamp(),
             approved: true,
@@ -244,22 +273,31 @@ pub async fn get_comment_thread(
 }
 
 pub async fn get_comment_position(pool: &Pool, id: i64) -> Result<Option<CommentPosition>, DbError> {
-    let conn = pool.check_out().await?;
-    let result = conn.select(Select::from_table("comments")
-        .columns(vec!["id", "thread_id", "level1_id", "level2_id", "level3_id", "level4_id", "level5_id", "level6_id",
-            "status"])
-        .so_that("id".equals(id))).await?;
-    if let Some(row) = result.first() {
+    let result = pool.select_optional(Query::select().from(Comments::Table)
+        .columns(vec![
+            Comments::Id,
+            Comments::ThreadId,
+            Comments::Level1Id,
+            Comments::Level2Id,
+            Comments::Level3Id,
+            Comments::Level4Id,
+            Comments::Level5Id,
+            Comments::Level6Id,
+            Comments::Status,
+        ])
+        .and_where(Expr::col(Comments::Id).eq(id)))
+        .await?;
+    if let Some(row) = result {
         Ok(Some(CommentPosition {
-            id: row[0].clone().try_into()?,
-            thread_id: row[1].clone().try_into()?,
-            level1_id: row[2].as_i64(),
-            level2_id: row[3].as_i64(),
-            level3_id: row[4].as_i64(),
-            level4_id: row[5].as_i64(),
-            level5_id: row[6].as_i64(),
-            level6_id: row[7].as_i64(),
-            status: row[8].clone().try_into()?,
+            id: row.try_get(0)?,
+            thread_id: row.try_get(1)?,
+            level1_id: row.try_get(2)?,
+            level2_id: row.try_get(3)?,
+            level3_id: row.try_get(4)?,
+            level4_id: row.try_get(5)?,
+            level5_id: row.try_get(6)?,
+            level6_id: row.try_get(7)?,
+            status: convert_comment_status(row.try_get(8)?)?,
         }))
     } else {
         Ok(None)
@@ -267,32 +305,44 @@ pub async fn get_comment_position(pool: &Pool, id: i64) -> Result<Option<Comment
 }
 
 pub async fn count_comments_by_ip(pool: &Pool, ip: &str, since: DateTime<Utc>) -> Result<i64, DbError> {
-    let conn = pool.check_out().await?;
-    let result = conn.select(Select::from_table("comments")
-        .value(count(asterisk()))
-        .so_that("ip".equals(ip).and("created".greater_than_or_equals(since.to_rfc3339())))).await?;
-    Ok(result.first().and_then(|row| row[0].as_i64()).unwrap_or(0))
+    let result = pool.select_one(Query::select().from(Comments::Table)
+        .expr(Expr::col(Comments::Id).count())
+        .and_where(Expr::col(Comments::Ip).eq(ip))
+        .and_where(Expr::col(Comments::Created).gte(since.naive_utc())))
+        .await?;
+    Ok(result.try_get(0)?)
 }
 
 pub async fn insert_comment(
-    conn: &PooledConnection,
+    pool: &Pool,
     thread_id: i64,
     parent: Option<&CommentPosition>,
     data: &NewComment,
 ) -> Result<CommentPosition, DbError> {
+    let id = pool.insert(Query::insert().into_table(Comments::Table)
+        .columns(vec![
+            Comments::ThreadId,
+            Comments::Name,
+            Comments::Email,
+            Comments::Website,
+            Comments::Ip,
+            Comments::Html,
+            Comments::Markdown,
+            Comments::Status,
+            Comments::Created,
+        ])
+        .values_panic(vec![
+            thread_id.into(),
+            data.name.as_str().into(),
+            data.email.as_str().into(),
+            data.website.as_str().into(),
+            data.ip.as_str().into(),
+            data.html.as_str().into(),
+            data.markdown.as_str().into(),
+            data.status.into(),
+            data.created.naive_utc().into(),
+        ])).await?;
     let parent_id = parent.map(|p| p.level6_id.unwrap_or(p.id));
-    let id = insert_id(conn.insert(Insert::single_into("comments")
-        .value("thread_id", thread_id)
-        .value("parent_id", parent_id.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
-        .value("name", data.name.as_str())
-        .value("email", data.email.clone())
-        .value("website", data.website.as_str())
-        .value("ip", data.ip.clone())
-        .value("html", data.html.as_str())
-        .value("markdown", data.markdown.clone())
-        .value("status", data.status.to_string())
-        .value("created", data.created.to_rfc3339())
-        .build()).await?)?;
     let level1 = parent.map(|p| p.level1_id).flatten().unwrap_or(id);
     let level2 = parent.map(|p| p.level2_id
         .or_else(|| p.level1_id.map(|_| id))).flatten();
@@ -304,14 +354,16 @@ pub async fn insert_comment(
         .or_else(|| p.level4_id.map(|_| id))).flatten();
     let level6 = parent.map(|p| p.level6_id
         .or_else(|| p.level5_id.map(|_| id))).flatten();
-    conn.update(Update::table("comments")
-        .set("level1_id", level1)
-        .set("level2_id", level2.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
-        .set("level3_id", level3.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
-        .set("level4_id", level4.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
-        .set("level5_id", level5.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
-        .set("level6_id", level6.map(ParameterizedValue::from).unwrap_or(ParameterizedValue::Null))
-        .so_that("id".equals(id))).await?;
+    pool.update(Query::update().table(Comments::Table)
+        .value(Comments::ParentId, parent_id.into())
+        .value(Comments::Level1Id, level1.into())
+        .value(Comments::Level2Id, level2.into())
+        .value(Comments::Level3Id, level3.into())
+        .value(Comments::Level4Id, level4.into())
+        .value(Comments::Level5Id, level5.into())
+        .value(Comments::Level6Id, level6.into())
+        .and_where(Expr::col(Comments::Id).eq(id)))
+        .await?;
     Ok(CommentPosition {
         id,
         thread_id,
@@ -332,8 +384,7 @@ pub async fn post_comment(
     max_depth: u8,
     data: NewComment,
 ) -> Result<PublicComment, DbError> {
-    let conn = pool.check_out().await?;
-    let position = insert_comment(&conn, thread_id, parent, &data).await?;
+    let position = insert_comment(pool, thread_id, parent, &data).await?;
     let visible_parent_id = get_parent_id(position.id, [
         position.level1_id, position.level2_id, position.level3_id, position.level4_id, position.level5_id,
         position.level6_id], max_depth);
@@ -350,108 +401,113 @@ pub async fn post_comment(
     })
 }
 
-fn get_default_comment_query<'a>() -> Select<'a> {
-    Select::from_table("comments".alias("c"))
+fn get_default_comment_query() -> SelectStatement {
+    Query::select().from(Comments::Table)
         .columns(vec![
-            ("c", "id"), ("c", "thread_id"), ("t", "name"), ("c", "parent_id"), ("c", "status"),
-            ("c", "name"), ("c", "email"), ("c", "website"), ("c", "ip"), ("c", "markdown"), ("c", "html"),
-            ("c", "created")
+            (Comments::Table, Comments::Id),
+            (Comments::Table, Comments::ThreadId),
         ])
-        .value(Select::from_table("comments")
-            .value(count(asterisk()))
-            .so_that("parent_id".equals(Column::from(("c", "id")))))
-        .inner_join("threads".alias("t").on(("t", "id").equals(Column::from(("c", "thread_id")))))
+        .column((Threads::Table, Threads::Name))
+        .columns(vec![
+            (Comments::Table, Comments::ParentId),
+            (Comments::Table, Comments::Status),
+            (Comments::Table, Comments::Name),
+            (Comments::Table, Comments::Email),
+            (Comments::Table, Comments::Website),
+            (Comments::Table, Comments::Ip),
+            (Comments::Table, Comments::Markdown),
+            (Comments::Table, Comments::Html),
+            (Comments::Table, Comments::Created),
+        ])
+        .expr(SimpleExpr::SubQuery(Box::new(Query::select()
+                    .expr(Func::count(Expr::col(Comments::Id)))
+                    .from(Comments::Table)
+                    .and_where(Expr::tbl(Comments::Table, Comments::Id)
+                        .equals(Comments::Table, Comments::ParentId))
+                    .to_owned())))
+        .inner_join(Threads::Table, Expr::tbl(Threads::Table, Threads::Id).equals(Comments::Table, Comments::ThreadId))
+        .to_owned()
 }
 
-async fn query_comments<'a>(
-    conn: &PooledConnection,
-    select: Select<'a>,
+async fn query_comments(
+    pool: &Pool,
+    select: &SelectStatement,
 ) -> Result<Vec<PrivateComment>, DbError> {
-    let mut rows = conn.select(select).await?.into_iter();
+    let mut rows = pool.select(select).await?.into_iter();
     let mut content = Vec::new();
     while let Some(row) = rows.next() {
-        let created_string: String = row[11].clone().try_into()?;
-        let created = DateTime::parse_from_rfc3339(created_string.as_str())?;
+        let created: DateTime<Utc> = row.try_get(11)?;
         content.push(PrivateComment {
-            id: row[0].clone().try_into()?,
-            thread_id: row[1].clone().try_into()?,
-            thread_name: row[2].clone().try_into()?,
-            parent_id: row[3].as_i64(),
-            status: row[4].clone().try_into()?,
-            name: row[5].clone().try_into()?,
-            email: row[6].clone().try_into()?,
-            website: row[7].clone().try_into()?,
-            ip: row[8].clone().try_into()?,
-            markdown: row[9].clone().try_into()?,
-            html: row[10].clone().try_into()?,
+            id: row.try_get(0)?,
+            thread_id: row.try_get(1)?,
+            thread_name: row.try_get(2)?,
+            parent_id: row.try_get(3)?,
+            status: convert_comment_status(row.try_get(4)?)?,
+            name: row.try_get(5)?,
+            email: row.try_get(6)?,
+            website: row.try_get(7)?,
+            ip: row.try_get(8)?,
+            markdown: row.try_get(9)?,
+            html: row.try_get(10)?,
             created: created.to_rfc3339(),
             created_timestamp: created.timestamp(),
-            replies: row[12].clone().try_into()?,
+            replies: row.try_get(12)?,
         });
     }
     Ok(content)
 }
 
 pub async fn get_comments(pool: &Pool, filter: CommentFilter, asc: bool, limit: usize, offset: usize) -> Result<Page<PrivateComment>, DbError> {
-    let conn = pool.check_out().await?;
     let mut query = get_default_comment_query();
     match filter {
         CommentFilter::Status(status) => {
-            query = query.so_that(("c", "status").equals(status.to_string()));
+            query.and_where(Expr::tbl(Comments::Table, Comments::Status).eq(status));
         },
         CommentFilter::Parent(parent_id) => {
-            query = query.so_that(("c", "parent_id").equals(parent_id));
+            query.and_where(Expr::tbl(Comments::Table, Comments::ParentId).eq(parent_id));
         },
         CommentFilter::Thread(thread_id) => {
-            query = query.so_that(("c", "thread_id").equals(thread_id));
+            query.and_where(Expr::tbl(Comments::Table, Comments::ThreadId).eq(thread_id));
         },
     };
     if asc {
-        query = query.order_by("created".ascend());
+        query.order_by((Comments::Table, Comments::Created), sea_query::Order::Asc);
     } else {
-        query = query.order_by("created".descend());
+        query.order_by((Comments::Table, Comments::Created), sea_query::Order::Desc);
     };
-    query = query.limit(limit).offset(offset);
-    let content = query_comments(&conn, query).await?;
-    let mut remaining = 0;
-    if content.len() == limit {
-        let size = conn.select(Select::from_table("comments")
-            .value(count(asterisk()))
-            .so_that(match filter {
-                CommentFilter::Status(status) => "status".equals(status.to_string()),
-                CommentFilter::Parent(parent_id) => "parent_id".equals(parent_id),
-                CommentFilter::Thread(thread_id) => "thread_id".equals(thread_id),
-            })).await?
-        .first()
-            .map(|row| row[0].as_i64())
-            .flatten()
-            .unwrap_or(0) as usize;
-        remaining = size - offset - limit;
-    }
+    query.limit(limit as u64).offset(offset as u64);
+    let content = query_comments(pool, &query).await?;
+    let remaining = count_remaining(pool, content.len(), limit, offset, Query::select()
+        .from(Comments::Table)
+        .expr(Expr::col(Comments::Id).count())
+        .and_where(match filter {
+            CommentFilter::Status(status) => Expr::col(Comments::Status).eq(status),
+            CommentFilter::Parent(parent_id) => Expr::col(Comments::ParentId).eq(parent_id),
+            CommentFilter::Thread(thread_id) => Expr::col(Comments::ThreadId).eq(thread_id),
+        })).await?;
     Ok(Page { content, remaining, limit })
 }
 
 pub async fn get_comment(pool: &Pool, id: i64) -> Result<Option<PrivateComment>, DbError> {
-    let conn = pool.check_out().await?;
-    Ok(query_comments(&conn, get_default_comment_query().so_that(("c", "id").equals(id))).await?.into_iter().next())
+    Ok(query_comments(pool, get_default_comment_query()
+            .and_where(Expr::tbl(Comments::Table, Comments::Id).eq(id))).await?.into_iter().next())
 }
 
 pub async fn update_comment(pool: &Pool, id: i64, data: UpdateComment) -> Result<(), DbError> {
-    let conn = pool.check_out().await?;
-    conn.update(Update::table("comments")
-        .set("name", data.name)
-        .set("website", data.website)
-        .set("email", data.email)
-        .set("markdown", data.markdown)
-        .set("html", data.html)
-        .set("status", data.status.to_string())
-        .so_that("id".equals(id))).await?;
+    pool.update(Query::update().table(Comments::Table)
+        .value(Comments::Name, data.name.into())
+        .value(Comments::Website, data.website.into())
+        .value(Comments::Email, data.email.into())
+        .value(Comments::Markdown, data.markdown.into())
+        .value(Comments::Html, data.html.into())
+        .value(Comments::Status, data.status.into())
+        .and_where(Expr::col(Comments::Id).eq(id))).await?;
     Ok(())
 }
 
 pub async fn delete_comment(pool: &Pool, id: i64) -> Result<(), DbError> {
-    let conn = pool.check_out().await?;
-    conn.delete(Delete::from_table("comments").so_that("id".equals(id))).await?;
+    pool.delete(Query::delete().from_table(Comments::Table)
+        .and_where(Expr::col(Comments::Id).eq(id))).await?;
     Ok(())
 }
 

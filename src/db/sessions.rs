@@ -5,14 +5,21 @@
 
 //! DB queries related to sessions
 
-use std::convert::TryInto;
-
-use quaint::prelude::*;
 use chrono::{DateTime, FixedOffset, Utc};
+use sea_query::{Expr, Iden, Query};
+use sqlx::Row;
 
-use crate::db::{Pool, DbError};
+use crate::db::{DbError, Pool, users::Users};
 
 use super::users::User;
+
+#[derive(Iden)]
+pub enum Sessions {
+    Table,
+    Id,
+    ValidUntil,
+    UserId,
+}
 
 pub struct Session {
     pub id: String,
@@ -21,34 +28,37 @@ pub struct Session {
 }
 
 pub async fn get_session(pool: &Pool, session_id: &str) -> Result<Option<Session>, DbError> {
-    let conn = pool.check_out().await?;
-    let mut result = conn.select(Select::from_table("sessions".alias("s"))
+    let result = pool.select_optional(Query::select()
         .columns(vec![
-            ("s", "id"),
-            ("s", "valid_until"),
-            ("u", "id"),
-            ("u", "username"),
-            ("u", "name"),
-            ("u", "email"),
-            ("u", "website"),
-            ("u", "trusted"),
-            ("u", "admin")
+            (Sessions::Table, Sessions::Id),
+            (Sessions::Table, Sessions::ValidUntil),
         ])
-        .inner_join("users".alias("u").on(("u", "id").equals(Column::from(("s", "user_id")))))
-        .so_that(("s", "id").equals(session_id))).await?.into_iter();
-    if let Some(row) = result.next() {
-        let valid_until: String = row[1].clone().try_into()?;
+        .columns(vec![
+            (Users::Table, Users::Id),
+            (Users::Table, Users::Username),
+            (Users::Table, Users::Name),
+            (Users::Table, Users::Email),
+            (Users::Table, Users::Website),
+            (Users::Table, Users::Trusted),
+            (Users::Table, Users::Admin),
+        ])
+        .from(Sessions::Table)
+        .inner_join(Users::Table, Expr::tbl(Users::Table, Users::Id).equals(Sessions::Table, Sessions::UserId))
+        .and_where(Expr::tbl(Sessions::Table, Sessions::Id).eq(session_id)))
+        .await?;
+    if let Some(row) = result {
+        let valid_until: String = row.try_get(1)?;
         Ok(Some(Session {
-            id: row[0].clone().try_into()?,
+            id: row.try_get(0)?,
             valid_until: DateTime::parse_from_rfc3339(valid_until.as_str())?,
             user: User {
-                id: row[2].clone().try_into()?,
-                username: row[3].clone().try_into()?,
-                name: row[4].clone().try_into()?,
-                email: row[5].clone().try_into()?,
-                website: row[6].clone().try_into()?,
-                trusted: row[7].clone().try_into()?,
-                admin: row[8].clone().try_into()?,
+                id: row.try_get(2)?,
+                username: row.try_get(3)?,
+                name: row.try_get(4)?,
+                email: row.try_get(5)?,
+                website: row.try_get(6)?,
+                trusted: row.try_get(7)?,
+                admin: row.try_get(8)?,
             },
         }))
     } else {
@@ -57,23 +67,26 @@ pub async fn get_session(pool: &Pool, session_id: &str) -> Result<Option<Session
 }
 
 pub async fn create_session(pool: &Pool, session_id: &str, valid_until: DateTime<Utc>, user_id: i64) -> Result<(), DbError> {
-    let conn = pool.check_out().await?;
-    conn.insert(Insert::single_into("sessions")
-        .value("id", session_id)
-        .value("valid_until", valid_until.to_rfc3339())
-        .value("user_id", user_id)
-        .build()).await?;
+    pool.insert(Query::insert().into_table(Sessions::Table)
+        .columns(vec![Sessions::Id, Sessions::ValidUntil, Sessions::UserId])
+        .values_panic(vec![
+            session_id.into(),
+            valid_until.to_rfc3339().into(),
+            user_id.into(),
+        ])).await?;
     Ok(())
 }
 
 pub async fn delete_session(pool: &Pool, session_id: &str) -> Result<(), DbError> {
-    let conn = pool.check_out().await?;
-    conn.delete(Delete::from_table("sessions").so_that("id".equals(session_id))).await?;
+    pool.delete(Query::delete().from_table(Sessions::Table)
+        .and_where(Expr::col(Sessions::Id).eq(session_id)))
+        .await?;
     Ok(())
 }
 
 pub async fn delete_expired_sessions(pool: &Pool) -> Result<(), DbError> {
-    let conn = pool.check_out().await?;
-    conn.delete(Delete::from_table("sessions").so_that("valid_until".less_than(Utc::now().to_rfc3339()))).await?;
+    pool.delete(Query::delete().from_table(Sessions::Table)
+        .and_where(Expr::col(Sessions::ValidUntil).lt(Utc::now().naive_utc())))
+        .await?;
     Ok(())
 }

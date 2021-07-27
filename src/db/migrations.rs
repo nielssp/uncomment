@@ -49,3 +49,48 @@ pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])]
      )",
     ]),
 ];
+
+pub static POSTGRES_MIGRATIONS: &'static [(&'static str, &'static [&'static str])] = &[
+    ("V1_Init", &[
+     "create table threads (
+         id serial primary key,
+         name varchar(100) unique not null,
+         title varchar(100) null
+     )",
+     "create table comments (
+         id serial primary key,
+         thread_id integer not null,
+         parent_id integer null,
+         level1_id integer null,
+         level2_id integer null,
+         level3_id integer null,
+         level4_id integer null,
+         level5_id integer null,
+         level6_id integer null,
+         user_id integer null,
+         name varchar(100) not null,
+         email varchar(100) not null,
+         website varchar(100) not null,
+         ip varchar(100) not null,
+         html text not null,
+         markdown text not null,
+         status varchar(50) not null,
+         created timestamp not null
+     )",
+     "create table users (
+         id serial primary key,
+         username varchar(100) not null,
+         password varchar(200) not null,
+         name varchar(100) not null unique,
+         email varchar(100) not null,
+         website varchar(100) not null,
+         trusted boolean not null default false,
+         admin boolean not null default false
+     )",
+     "create table sessions (
+        id varchar(100) primary key,
+        user_id integer not null,
+        valid_until timestamp not null
+     )",
+    ]),
+];

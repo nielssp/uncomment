@@ -12,7 +12,6 @@ use chrono::{DateTime, Utc};
 use log::info;
 use minidom::{Element, NSChoice};
 use thiserror::Error;
-use quaint::pooled::PooledConnection;
 
 #[derive(Error, Debug)]
 pub enum ImportError {
@@ -134,13 +133,13 @@ pub fn read_xml_comments(
 }
 
 async fn insert_imported_comment(
-    conn: &PooledConnection,
+    pool: &Pool,
     thread_id: i64,
     parent: Option<&CommentPosition>,
     comment: &ImportComment,
 ) -> Result<CommentPosition, DbError> {
     let safe_html = ammonia::clean(&comment.message);
-    comments::insert_comment(conn, thread_id, parent, &comments::NewComment {
+    comments::insert_comment(pool, thread_id, parent, &comments::NewComment {
         name: comment.name.clone(),
         email: "".to_owned(),
         website: comment.website.clone(),
@@ -156,7 +155,6 @@ pub async fn insert_imported_comments(
     pool: &Pool,
     threads: Vec<ImportThread>,
 ) -> Result<(), DbError> {
-    let conn = pool.check_out().await?;
     for thread in threads {
         let thread_id = match threads::get_thread_by_name(pool, &thread.name).await? {
             Some(t) => Ok(t),
@@ -170,7 +168,7 @@ pub async fn insert_imported_comments(
             queue.push((comment, None));
         }
         while let Some((comment, parent)) = queue.pop() {
-            let position = insert_imported_comment(&conn, thread_id, parent.as_ref(), &comment).await?;
+            let position = insert_imported_comment(pool, thread_id, parent.as_ref(), &comment).await?;
             for reply in comment.replies.iter() {
                 queue.push((reply, Some(position)));
             }

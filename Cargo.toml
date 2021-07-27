@@ -5,6 +5,8 @@ authors = ["Niels Sonnich Poulsen <niels@nielssp.dk>"]
 edition = "2018"
 
 [dependencies]
+async-std = { version = "1.9", features = ["attributes"] }
+
 # Logging, config, and error handling
 dotenv = "0.15"
 log = "0.4"
@@ -34,8 +36,8 @@ pulldown-cmark = "0.8"
 ammonia = "3"
 
 # Database
-quaint = { version = "0.1", features = ["sqlite", "pooled", "chrono"] }
-rusqlite = "0.20"
+sqlx = { version = "0.5", features = ["runtime-async-std-rustls", "sqlite", "postgres", "any", "chrono"] }
+sea-query = { version = "0.12", features = ["sqlx-sqlite", "sqlx-postgres", "with-chrono"] }
 
 # Auth
 argonautica = "0.2"

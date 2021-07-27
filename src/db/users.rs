@@ -5,11 +5,23 @@
 
 //! DB queries related to users
 
-use std::convert::TryInto;
+use super::{DbError, Page, Pool, count_remaining};
 
-use quaint::{pooled::PooledConnection, prelude::*};
+use sea_query::{Expr, Iden, Query, SelectStatement};
+use sqlx::Row;
 
-use super::{DbError, Page, Pool, count_remaining, insert_id};
+#[derive(Iden)]
+pub enum Users {
+    Table,
+    Id,
+    Username,
+    Password,
+    Name,
+    Email,
+    Website,
+    Trusted,
+    Admin,
+}
 
 #[derive(serde::Serialize)]
 pub struct User {
@@ -49,40 +61,49 @@ pub struct UpdateUser {
     pub admin: bool,
 }
 
-fn get_default_user_query<'a>() -> Select<'a> {
-    Select::from_table("users".alias("u"))
-        .columns(vec!["id", "username", "name", "email", "website", "trusted", "admin"])
+fn get_default_user_query() -> SelectStatement {
+    Query::select().from(Users::Table)
+        .columns(vec![
+            Users::Id,
+            Users::Username,
+            Users::Name,
+            Users::Email,
+            Users::Website,
+            Users::Trusted,
+            Users::Admin,
+        ])
+        .to_owned()
 }
 
-async fn query_users<'a>(
-    conn: &PooledConnection,
-    select: Select<'a>,
+async fn query_users(
+    pool: &Pool,
+    select: &SelectStatement,
 ) -> Result<Vec<User>, DbError> {
-    let mut rows = conn.select(select).await?.into_iter();
+    let mut rows = pool.select(select).await?.into_iter();
     let mut content = Vec::new();
     while let Some(row) = rows.next() {
         content.push(User {
-            id: row[0].clone().try_into()?,
-            username: row[1].clone().try_into()?,
-            name: row[2].clone().try_into()?,
-            email: row[3].clone().try_into()?,
-            website: row[4].clone().try_into()?,
-            trusted: row[5].clone().try_into()?,
-            admin: row[6].clone().try_into()?,
+            id: row.try_get(0)?,
+            username: row.try_get(1)?,
+            name: row.try_get(2)?,
+            email: row.try_get(3)?,
+            website: row.try_get(4)?,
+            trusted: row.try_get(5)?,
+            admin: row.try_get(6)?,
         });
     }
     Ok(content)
 }
 
 pub async fn get_password_by_username(pool: &Pool, username: &str) -> Result<Option<Password>, DbError> {
-    let conn = pool.check_out().await?;
-    let mut result = conn.select(Select::from_table("users")
-        .columns(vec!["id", "password"])
-        .so_that("username".equals(username))).await?.into_iter();
-    if let Some(row) = result.next() {
+    let result = pool.select_optional(Query::select().from(Users::Table)
+        .columns(vec![Users::Id, Users::Password])
+        .and_where(Expr::col(Users::Username).eq(username)))
+        .await?;
+    if let Some(row) = result {
         Ok(Some(Password {
-            user_id: row[0].clone().try_into()?,
-            password: row[1].clone().try_into()?,
+            user_id: row.try_get(0)?,
+            password: row.try_get(1)?,
         }))
     } else {
         Ok(None)
@@ -90,14 +111,14 @@ pub async fn get_password_by_username(pool: &Pool, username: &str) -> Result<Opt
 }
 
 pub async fn get_password_by_user_id(pool: &Pool, user_id: i64) -> Result<Option<Password>, DbError> {
-    let conn = pool.check_out().await?;
-    let mut result = conn.select(Select::from_table("users")
-        .columns(vec!["id", "password"])
-        .so_that("id".equals(user_id))).await?.into_iter();
-    if let Some(row) = result.next() {
+    let result = pool.select_optional(Query::select().from(Users::Table)
+        .columns(vec![Users::Id, Users::Password])
+        .and_where(Expr::col(Users::Id).eq(user_id)))
+        .await?;
+    if let Some(row) = result {
         Ok(Some(Password {
-            user_id: row[0].clone().try_into()?,
-            password: row[1].clone().try_into()?,
+            user_id: row.try_get(0)?,
+            password: row.try_get(1)?,
         }))
     } else {
         Ok(None)
@@ -105,23 +126,35 @@ pub async fn get_password_by_user_id(pool: &Pool, user_id: i64) -> Result<Option
 }
 
 pub async fn admin_exists(pool: &Pool) -> Result<bool, DbError> {
-    let conn = pool.check_out().await?;
-    Ok(conn.select(Select::from_table("users")
-            .value(1)
-            .so_that("admin".equals(true))).await?.first().is_some())
+    Ok(pool.select_optional(Query::select().from(Users::Table)
+            .expr(Expr::value(1))
+            .and_where(Expr::col(Users::Admin).eq(true)))
+        .await?
+        .is_some())
 }
 
 pub async fn create_user(pool: &Pool, new_user: NewUser) -> Result<User, DbError> {
-    let conn = pool.check_out().await?;
-    let id = insert_id(conn.insert(Insert::single_into("users")
-            .value("username", new_user.username.as_str())
-            .value("password", new_user.password.as_str())
-            .value("name", new_user.name.as_str())
-            .value("email", new_user.email.as_str())
-            .value("website", new_user.website.as_str())
-            .value("trusted", new_user.trusted)
-            .value("admin", new_user.admin)
-            .build()).await?)?;
+    let id = pool.insert(Query::insert()
+        .into_table(Users::Table)
+        .columns(vec![
+            Users::Username,
+            Users::Password,
+            Users::Name,
+            Users::Email,
+            Users::Website,
+            Users::Trusted,
+            Users::Admin,
+        ])
+        .values_panic(vec![
+            new_user.username.as_str().into(),
+            new_user.password.as_str().into(),
+            new_user.name.as_str().into(),
+            new_user.email.as_str().into(),
+            new_user.website.as_str().into(),
+            new_user.trusted.into(),
+            new_user.admin.into(),
+        ])
+        .returning_col(Users::Id)).await?;
     Ok(User {
         id,
         username: new_user.username,
@@ -134,49 +167,48 @@ pub async fn create_user(pool: &Pool, new_user: NewUser) -> Result<User, DbError
 }
 
 pub async fn change_password(pool: &Pool, user_id: i64, password: &str) -> Result<(), DbError> {
-    let conn = pool.check_out().await?;
-    conn.update(Update::table("users")
-        .set("password", password)
-        .so_that("id".equals(user_id))).await?;
+    pool.update(Query::update().table(Users::Table)
+        .value(Users::Password, password.into())
+        .and_where(Expr::col(Users::Id).eq(user_id)))
+        .await?;
     Ok(())
 }
 
 pub async fn get_user_by_id(pool: &Pool, id: i64) -> Result<Option<User>, DbError> {
-    let conn = pool.check_out().await?;
-    Ok(query_users(&conn, get_default_user_query().so_that("id".equals(id))).await?.into_iter().next())
+    Ok(query_users(pool, get_default_user_query().and_where(Expr::col(Users::Id).eq(id))).await?.into_iter().next())
 }
 
 pub async fn get_users(pool: &Pool, limit: usize, offset: usize) -> Result<Page<User>, DbError> {
-    let conn = pool.check_out().await?;
-    let query = get_default_user_query()
-        .order_by("username")
-        .limit(limit)
-        .offset(offset);
-    let content = query_users(&conn, query).await?;
-    let remaining = count_remaining(&conn, content.len(), limit, offset,
-        Select::from_table("users").value(count(asterisk()))).await?;
+    let mut query = get_default_user_query();
+    query.order_by(Users::Username, sea_query::Order::Asc)
+        .limit(limit as u64)
+        .offset(offset as u64);
+    let content = query_users(pool, &query).await?;
+    let remaining = count_remaining(pool, content.len(), limit, offset,
+        Query::select().from(Users::Table).expr(Expr::count(Expr::col(Users::Id)))).await?;
     Ok(Page { content, remaining, limit })
 }
 
 pub async fn update_user(pool: &Pool, id: i64, data: UpdateUser) -> Result<(), DbError> {
-    let conn = pool.check_out().await?;
-    let mut update = Update::table("users")
-        .set("username", data.username.as_str())
-        .set("name", data.name.as_str())
-        .set("email", data.email.as_str())
-        .set("website", data.website.as_str())
-        .set("trusted", data.trusted)
-        .set("admin", data.admin)
-        .so_that("id".equals(id));
+    let mut update = Query::update().table(Users::Table)
+        .value(Users::Username, data.username.into())
+        .value(Users::Name, data.name.into())
+        .value(Users::Email, data.email.into())
+        .value(Users::Website, data.website.into())
+        .value(Users::Trusted, data.trusted.into())
+        .value(Users::Admin, data.admin.into())
+        .and_where(Expr::col(Users::Id).eq(id))
+        .to_owned();
     if let Some(password) = data.password {
-        update = update.set("password", password.clone());
+        update = update.value(Users::Password, password.into()).to_owned();
     }
-    conn.update(update).await?;
+    pool.update(&update).await?;
     Ok(())
 }
 
 pub async fn delete_user(pool: &Pool, id: i64) -> Result<(), DbError> {
-    let conn = pool.check_out().await?;
-    conn.delete(Delete::from_table("users").so_that("id".equals(id))).await?;
+    pool.delete(Query::delete().from_table(Users::Table)
+        .and_where(Expr::col(Users::Id).eq(id)))
+        .await?;
     Ok(())
 }
