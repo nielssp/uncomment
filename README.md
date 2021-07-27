@@ -80,8 +80,8 @@ Uncomment is configured via environment variables.
 
 * `data-uncomment-target` &ndash; selector for the container element used to contain the comments
 * `data-uncomment-id` &ndash; thread name to use instead of `location.pathname`
-* `data-relative-dates` &ndash; display relative dates like "4 weeks ago", enabled by default
-* `data-newest-first` &ndash; whether to display comments sorted chronologically in descending order instead of ascending order
-* `data-require-name` &ndash; whether a name is required for posting comments, server should be configured to match
-* `data-require-email` &ndash; whether an email is required for posting comments, server should be configured to match
-* `data-click-to-load` &ndash; whether to present the user with a button for loading the comments instead of automatically loading them when the page loads
+* `data-uncomment-relative-dates` &ndash; display relative dates like "4 weeks ago", enabled by default
+* `data-uncomment-newest-first` &ndash; whether to display comments sorted chronologically in descending order instead of ascending order
+* `data-uncomment-require-name` &ndash; whether a name is required for posting comments, server should be configured to match
+* `data-uncomment-require-email` &ndash; whether an email is required for posting comments, server should be configured to match
+* `data-uncomment-click-to-load` &ndash; whether to present the user with a button for loading the comments instead of automatically loading them when the page loads
