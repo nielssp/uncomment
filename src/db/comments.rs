@@ -5,7 +5,7 @@
 
 //! DB queries related to comments and threads
 
-use sea_query::{Expr, Func, Iden, Query, SelectStatement, SimpleExpr, Value};
+use sea_query::{Alias, DynIden, Expr, Func, Iden, Query, SelectStatement, SimpleExpr, Value};
 use sqlx::Row;
 
 use std::{cmp, collections::HashMap, fmt};
@@ -341,7 +341,8 @@ pub async fn insert_comment(
             data.markdown.as_str().into(),
             data.status.into(),
             data.created.naive_utc().into(),
-        ])).await?;
+        ])
+        .returning_col(Comments::Id)).await?;
     let parent_id = parent.map(|p| p.level6_id.unwrap_or(p.id));
     let level1 = parent.map(|p| p.level1_id).flatten().unwrap_or(id);
     let level2 = parent.map(|p| p.level2_id
@@ -402,6 +403,7 @@ pub async fn post_comment(
 }
 
 fn get_default_comment_query() -> SelectStatement {
+    let nested: DynIden = sea_query::SeaRc::new(Alias::new("c"));
     Query::select().from(Comments::Table)
         .columns(vec![
             (Comments::Table, Comments::Id),
@@ -421,9 +423,9 @@ fn get_default_comment_query() -> SelectStatement {
         ])
         .expr(SimpleExpr::SubQuery(Box::new(Query::select()
                     .expr(Func::count(Expr::col(Comments::Id)))
-                    .from(Comments::Table)
+                    .from_as(Comments::Table, nested.clone())
                     .and_where(Expr::tbl(Comments::Table, Comments::Id)
-                        .equals(Comments::Table, Comments::ParentId))
+                        .equals(nested.clone(), Comments::ParentId))
                     .to_owned())))
         .inner_join(Threads::Table, Expr::tbl(Threads::Table, Threads::Id).equals(Comments::Table, Comments::ThreadId))
         .to_owned()

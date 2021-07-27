@@ -166,40 +166,80 @@ impl Pool {
         }
     }
 
+    fn fix_broken_null_behavior(&self, (sql, Values(values)): (String, Values)) -> (String, Values) {
+        if values.is_empty() {
+            return (sql, Values(values));
+        }
+        let mut rest = sql.clone();
+        let mut result = "".to_owned();
+        let mut copy = Vec::new();
+        let mut counter = 1;
+        for value in values.iter() {
+            let mut splits = rest.splitn(2, match self.kind {
+                PoolKind::Sqlite => "?",
+                PoolKind::Postgres => "$",
+            }).into_iter();
+            if let Some(start) = splits.next() {
+                result.push_str(start);
+            }
+            match value {
+                Value::Null => result.push_str("null"),
+                _ => {
+                    match self.kind {
+                        PoolKind::Sqlite => result.push('?'),
+                        PoolKind::Postgres => result.push_str(&format!("${}", counter)),
+                    }
+                    counter += 1;
+                    copy.push(value.clone());
+                },
+            }
+            if let Some(end) = splits.next() {
+                rest = match self.kind {
+                    PoolKind::Sqlite => end.to_owned(),
+                    PoolKind::Postgres => end.to_owned().trim_start_matches(char::is_numeric).to_owned(),
+                }
+            } else {
+                rest = "".to_owned();
+            }
+        }
+        result.push_str(&rest);
+        (result, Values(copy))
+    }
+
     pub async fn select(&self, query: &SelectStatement) -> Result<Vec<AnyRow>, DbError> {
-        let (sql, values) = self.build_select_query(query);
+        let (sql, values) = self.fix_broken_null_behavior(self.build_select_query(query));
         let query = bind_query(sqlx::query(&sql), &values);
         Ok(query.fetch_all(&self.pool).await?)
     }
 
     pub async fn select_one(&self, query: &SelectStatement) -> Result<AnyRow, DbError> {
-        let (sql, values) = self.build_select_query(query);
+        let (sql, values) = self.fix_broken_null_behavior(self.build_select_query(query));
         let query = bind_query(sqlx::query(&sql), &values);
         Ok(query.fetch_one(&self.pool).await?)
     }
 
     pub async fn select_optional(&self, query: &SelectStatement) -> Result<Option<AnyRow>, DbError> {
-        let (sql, values) = self.build_select_query(query);
+        let (sql, values) = self.fix_broken_null_behavior(self.build_select_query(query));
         let query = bind_query(sqlx::query(&sql), &values);
         Ok(query.fetch_optional(&self.pool).await?)
     }
 
     pub async fn insert(&self, query: &InsertStatement) -> Result<i64, DbError> {
-        let (sql, values) = self.build_insert_query(query);
+        let (sql, values) = self.fix_broken_null_behavior(self.build_insert_query(query));
         let query = bind_query(sqlx::query(&sql), &values);
         let result = query.execute(&self.pool).await?;
         result.last_insert_id().ok_or(DbError::NoInsertId)
     }
 
     pub async fn update(&self, query: &UpdateStatement) -> Result<u64, DbError> {
-        let (sql, values) = self.build_update_query(query);
+        let (sql, values) = self.fix_broken_null_behavior(self.build_update_query(query));
         let query = bind_query(sqlx::query(&sql), &values);
         let result = query.execute(&self.pool).await?;
         Ok(result.rows_affected())
     }
 
     pub async fn delete(&self, query: &DeleteStatement) -> Result<u64, DbError> {
-        let (sql, values) = self.build_delete_query(query);
+        let (sql, values) = self.fix_broken_null_behavior(self.build_delete_query(query));
         let query = bind_query(sqlx::query(&sql), &values);
         let result = query.execute(&self.pool).await?;
         Ok(result.rows_affected())
