@@ -5,7 +5,7 @@
 
 //! DB queries related to sessions
 
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone, Utc};
 use sea_query::{Expr, Iden, Query};
 use sqlx::Row;
 
@@ -23,7 +23,7 @@ pub enum Sessions {
 
 pub struct Session {
     pub id: String,
-    pub valid_until: DateTime<FixedOffset>,
+    pub valid_until: DateTime<Utc>,
     pub user: User,
 }
 
@@ -47,10 +47,10 @@ pub async fn get_session(pool: &Pool, session_id: &str) -> Result<Option<Session
         .and_where(Expr::tbl(Sessions::Table, Sessions::Id).eq(session_id)))
         .await?;
     if let Some(row) = result {
-        let valid_until: String = row.try_get(1)?;
+        let valid_until: NaiveDateTime = row.try_get(1)?;
         Ok(Some(Session {
             id: row.try_get(0)?,
-            valid_until: DateTime::parse_from_rfc3339(valid_until.as_str())?,
+            valid_until: Utc.from_utc_datetime(&valid_until),
             user: User {
                 id: row.try_get(2)?,
                 username: row.try_get(3)?,
@@ -71,7 +71,7 @@ pub async fn create_session(pool: &Pool, session_id: &str, valid_until: DateTime
         .columns(vec![Sessions::Id, Sessions::ValidUntil, Sessions::UserId])
         .values_panic(vec![
             session_id.into(),
-            valid_until.to_rfc3339().into(),
+            valid_until.naive_utc().into(),
             user_id.into(),
         ])).await?;
     Ok(())
@@ -86,7 +86,7 @@ pub async fn delete_session(pool: &Pool, session_id: &str) -> Result<(), DbError
 
 pub async fn delete_expired_sessions(pool: &Pool) -> Result<(), DbError> {
     pool.delete(Query::delete().from_table(Sessions::Table)
-        .and_where(Expr::col(Sessions::ValidUntil).lt(Utc::now().to_rfc3339())))
+        .and_where(Expr::col(Sessions::ValidUntil).lt(Utc::now().naive_utc())))
         .await?;
     Ok(())
 }

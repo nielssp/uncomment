@@ -82,7 +82,7 @@ pub async fn get_thread_by_id(pool: &Pool, id: i32) -> Result<Option<Thread>, Db
 }
 
 pub async fn create_thread(pool: &Pool, data: NewThread) -> Result<Thread, DbError> {
-    let id = pool.insert(Query::insert()
+    let id = pool.insert_returning(Query::insert()
         .into_table(Threads::Table)
         .columns(vec![Threads::Name, Threads::Title])
         .values_panic(vec![data.name.as_str().into(), data.title.clone().into()])

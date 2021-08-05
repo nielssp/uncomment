@@ -106,7 +106,15 @@ impl Pool {
     }
 
     #[cfg(not(feature = "postgres"))]
-    pub async fn insert(&self, query: &InsertStatement) -> Result<i32, DbError> {
+    pub async fn insert(&self, query: &InsertStatement) -> Result<(), DbError> {
+        let Pool::Pool(pool) = self;
+        let (sql, values) = query.build(SqliteQueryBuilder);
+        sea_query_driver_sqlite::bind_query(sqlx::query(&sql), &values).execute(pool).await?;
+        Ok(())
+    }
+
+    #[cfg(not(feature = "postgres"))]
+    pub async fn insert_returning(&self, query: &InsertStatement) -> Result<i32, DbError> {
         let Pool::Pool(pool) = self;
         let (sql, values) = query.build(SqliteQueryBuilder);
         Ok(sea_query_driver_sqlite::bind_query(sqlx::query(&sql), &values).execute(pool).await?.last_insert_rowid() as i32)
@@ -148,7 +156,15 @@ impl Pool {
     }
 
     #[cfg(feature = "postgres")]
-    pub async fn insert(&self, query: &InsertStatement) -> Result<i32, DbError> {
+    pub async fn insert(&self, query: &InsertStatement) -> Result<(), DbError> {
+        let Pool::Pool(pool) = self;
+        let (sql, values) = query.build(PostgresQueryBuilder);
+        sea_query_driver_postgres::bind_query(sqlx::query(&sql), &values).execute(pool).await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "postgres")]
+    pub async fn insert_returning(&self, query: &InsertStatement) -> Result<i32, DbError> {
         let Pool::Pool(pool) = self;
         let (sql, values) = query.build(PostgresQueryBuilder);
         let row = sea_query_driver_postgres::bind_query(sqlx::query(&sql), &values).fetch_one(pool).await?;
@@ -183,7 +199,7 @@ pub async fn count_remaining(
             .first()
             .map(|row| row.get(0))
             .flatten()
-            .unwrap_or(0) as i64;
+            .unwrap_or(0 as i64);
         remaining = (size as usize) - offset - limit;
     }
     Ok(remaining)

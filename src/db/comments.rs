@@ -10,7 +10,7 @@ use sqlx::Row;
 
 use std::{cmp, collections::HashMap, fmt};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
 use crate::db::{Page, Pool, DbError};
 
@@ -240,7 +240,8 @@ pub async fn get_comment_thread(
     let mut root = Vec::new();
     let mut replies: HashMap<i32, Vec<PublicComment>> = HashMap::new();
     for row in rows {
-        let created: DateTime<Utc> = row.try_get(11)?;
+        let naive_created: NaiveDateTime = row.try_get(11)?;
+        let created: DateTime<Utc> = Utc.from_utc_datetime(&naive_created);
         let id: i32 = row.try_get(0)?;
         let level1_id = row.try_get(2)?;
         let level2_id = row.try_get(3)?;
@@ -316,7 +317,7 @@ pub async fn count_comments_by_ip(pool: &Pool, ip: &str, since: DateTime<Utc>) -
     let result = pool.select_one(Query::select().from(Comments::Table)
         .expr(Expr::col(Comments::Id).count())
         .and_where(Expr::col(Comments::Ip).eq(ip))
-        .and_where(Expr::col(Comments::Created).gte(since.to_rfc3339())))
+        .and_where(Expr::col(Comments::Created).gte(since.naive_utc())))
         .await?;
     Ok(result.try_get(0)?)
 }
@@ -327,7 +328,7 @@ pub async fn insert_comment(
     parent: Option<&CommentPosition>,
     data: &NewComment,
 ) -> Result<CommentPosition, DbError> {
-    let id = pool.insert(Query::insert().into_table(Comments::Table)
+    let id = pool.insert_returning(Query::insert().into_table(Comments::Table)
         .columns(vec![
             Comments::ThreadId,
             Comments::Name,
@@ -348,7 +349,7 @@ pub async fn insert_comment(
             data.html.as_str().into(),
             data.markdown.as_str().into(),
             data.status.into(),
-            data.created.to_rfc3339().into(),
+            data.created.naive_utc().into(),
         ])
         .returning_col(Comments::Id)).await?;
     let parent_id = parent.map(|p| p.level6_id.unwrap_or(p.id));
@@ -363,14 +364,28 @@ pub async fn insert_comment(
         .or_else(|| p.level4_id.map(|_| id))).flatten();
     let level6 = parent.map(|p| p.level6_id
         .or_else(|| p.level5_id.map(|_| id))).flatten();
-    pool.update(Query::update().table(Comments::Table)
-        .value(Comments::ParentId, parent_id.into())
-        .value(Comments::Level1Id, level1.into())
-        .value(Comments::Level2Id, level2.into())
-        .value(Comments::Level3Id, level3.into())
-        .value(Comments::Level4Id, level4.into())
-        .value(Comments::Level5Id, level5.into())
-        .value(Comments::Level6Id, level6.into())
+    let mut update = Query::update();
+    update.table(Comments::Table);
+    update.value(Comments::Level1Id, level1.into());
+    if let Some(parent_id) = parent_id {
+        update.value(Comments::ParentId, parent_id.into());
+    }
+    if let Some(level2) = level2 {
+        update.value(Comments::Level2Id, level2.into());
+    }
+    if let Some(level3) = level3 {
+        update.value(Comments::Level3Id, level3.into());
+    }
+    if let Some(level4) = level4 {
+        update.value(Comments::Level4Id, level4.into());
+    }
+    if let Some(level5) = level5 {
+        update.value(Comments::Level5Id, level5.into());
+    }
+    if let Some(level6) = level6 {
+        update.value(Comments::Level6Id, level6.into());
+    }
+    pool.update(update
         .and_where(Expr::col(Comments::Id).eq(id)))
         .await?;
     Ok(CommentPosition {
@@ -446,7 +461,8 @@ async fn query_comments(
     let mut rows = pool.select(select).await?.into_iter();
     let mut content = Vec::new();
     while let Some(row) = rows.next() {
-        let created: DateTime<Utc> = row.try_get(11)?;
+        let naive_created: NaiveDateTime = row.try_get(11)?;
+        let created: DateTime<Utc> = Utc.from_utc_datetime(&naive_created);
         content.push(PrivateComment {
             id: row.try_get(0)?,
             thread_id: row.try_get(1)?,

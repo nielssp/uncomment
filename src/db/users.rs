@@ -134,7 +134,7 @@ pub async fn admin_exists(pool: &Pool) -> Result<bool, DbError> {
 }
 
 pub async fn create_user(pool: &Pool, new_user: NewUser) -> Result<User, DbError> {
-    let id = pool.insert(Query::insert()
+    let id = pool.insert_returning(Query::insert()
         .into_table(Users::Table)
         .columns(vec![
             Users::Username,
