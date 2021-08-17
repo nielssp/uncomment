@@ -44,12 +44,14 @@ export class Login implements Page {
             await this.services.auth.authenticate({
                 username: this.template.form.username.value,
                 password: this.template.form.password.value,
+                remember: this.template.form.remember.checked,
             });
             this.template.form.password.value = '';
             if (!this.services.router.restore()) {
                 this.services.router.navigate(['comments']);
             }
         } catch (error) {
+            console.error(error);
             this.template.info.style.display = '';
         } finally {
             this.template.submit.disabled = false;

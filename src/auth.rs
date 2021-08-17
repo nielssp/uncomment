@@ -17,6 +17,7 @@ use crate::{db::{Pool, sessions::{self, Session}, users::{self, NewUser, User}},
 pub struct Credentials {
     pub username: String,
     pub password: String,
+    pub remember: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -140,10 +141,14 @@ async fn create_auth(
                 info!("user not found by id: {}", password.user_id);
                 error::ErrorBadRequest("INVALID_CREDENTIALS")
             })?;
-        sessions::create_session(&pool, &session_id, Utc::now() + Duration::hours(1), user.id).await?;
+        let lifetime = match data.remember {
+            Some(true) => 60 * 24,
+            _ => 1,
+        };
+        sessions::create_session(&pool, &session_id, Utc::now() + Duration::hours(lifetime), user.id).await?;
         Ok(HttpResponse::Ok()
             .cookie(Cookie::build("uncomment_session", session_id)
-                .max_age(time::Duration::hours(1))
+                .max_age(time::Duration::hours(lifetime))
                 .http_only(true)
                 .finish())
             .json(SessionUser::from(user)))

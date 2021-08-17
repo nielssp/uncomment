@@ -7,8 +7,9 @@ import { Api } from "./api";
 import { Emitter } from "./emitter";
 
 export interface Credentials {
-    username: string,
-    password: string,
+    username: string;
+    password: string;
+    remember: boolean;
 }
 
 export interface User {
