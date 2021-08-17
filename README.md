@@ -76,7 +76,7 @@ Uncomment is configured via environment variables.
 
 * `UNCOMMENT_LISTEN=127.0.0.1:5000` &ndash; hostname and port to listen to
 * `UNCOMMENT_HOST` &ndash; comma-separated list of websites that will be accessing Uncomment
-* `UNCOMMENT_SQLITE_DATABASE=data.db` &ndash; path to SQLite database file
+* `UNCOMMENT_DATABASE=sqlite:data.db` &ndash; database connection string
 * `UNCOMMENT_SECRET_KEY` &ndash; secret key used as part of Argon2 hash used for password hashing
 * `UNCOMMENT_ARGON2_ITERATIONS=192` &ndash; number of Argon2 iterations to use, more iterations means more secure hash but slower login
 * `UNCOMMENT_ARGON2_MEMORY_SIZE=4096`
