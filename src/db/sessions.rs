@@ -5,7 +5,7 @@
 
 //! DB queries related to sessions
 
-use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use sea_query::{Expr, Iden, Query};
 use sqlx::Row;
 

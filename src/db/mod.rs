@@ -219,16 +219,16 @@ pub async fn install(settings: &Settings) -> Result<Pool, DbError> {
             versions.insert(row.try_get("version")?);
         }
     }
-    for (name, statements) in migrations::SQLITE_MIGRATIONS {
+    for (name, migration) in migrations::MIGRATIONS {
         if versions.contains(name.to_owned()) {
             continue;
         }
         info!("Running migration: {}", name);
         let mut tx = pool.begin().await?;
-        for statement in statements.iter() {
-            sqlx::query(statement).execute(&mut tx).await?;
+        for statement in migration(&SqliteQueryBuilder) {
+            sqlx::query(&statement).execute(&mut tx).await?;
         }
-        sqlx::query("insert into versions values ($1)").bind(name).execute(&mut tx).await?;
+        sqlx::query("insert into versions values (?)").bind(name).execute(&mut tx).await?;
         tx.commit().await?;
     }
     Ok(Pool::Pool(pool))
@@ -249,14 +249,14 @@ pub async fn install(settings: &Settings) -> Result<Pool, DbError> {
             versions.insert(row.try_get("version")?);
         }
     }
-    for (name, statements) in migrations::POSTGRES_MIGRATIONS {
+    for (name, migration) in migrations::MIGRATIONS {
         if versions.contains(name.to_owned()) {
             continue;
         }
         info!("Running migration: {}", name);
         let mut tx = pool.begin().await?;
-        for statement in statements.iter() {
-            sqlx::query(statement).execute(&mut tx).await?;
+        for statement in migration(&PostgresQueryBuilder) {
+            sqlx::query(&statement).execute(&mut tx).await?;
         }
         sqlx::query("insert into versions values ($1)").bind(name).execute(&mut tx).await?;
         tx.commit().await?;

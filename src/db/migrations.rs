@@ -5,94 +5,74 @@
 
 //! Minimal migration system
 
-#[cfg(not(feature = "postgres"))]
-pub static SQLITE_MIGRATIONS: &'static [(&'static str, &'static [&'static str])] = &[
-    ("V1_Init", &[
-     "create table threads (
-         id integer primary key autoincrement,
-         name text(100) unique not null,
-         title text(100) null
-     )",
-     "create table comments (
-         id integer primary key autoincrement,
-         thread_id integer not null,
-         parent_id integer null,
-         level1_id integer null,
-         level2_id integer null,
-         level3_id integer null,
-         level4_id integer null,
-         level5_id integer null,
-         level6_id integer null,
-         user_id integer null,
-         name text(100) not null,
-         email text(100) not null,
-         website text(100) not null,
-         ip text(100) not null,
-         html text not null,
-         markdown text not null,
-         status text(50) not null,
-         created text not null
-     )",
-     "create table users (
-         id integer primary key autoincrement,
-         username text(100) not null,
-         password text(200) not null,
-         name text(100) not null unique,
-         email text(100) not null,
-         website text(100) not null,
-         trusted boolean not null default 0,
-         admin boolean not null default 0
-     )",
-     "create table sessions (
-        id text(100) primary key,
-        user_id integer not null,
-        valid_until text not null
-     )",
-    ]),
-];
+use sea_query::{ColumnDef, ForeignKey, ForeignKeyAction, SchemaBuilder, Table};
 
-#[cfg(feature = "postgres")]
-pub static POSTGRES_MIGRATIONS: &'static [(&'static str, &'static [&'static str])] = &[
-    ("V1_Init", &[
-     "create table threads (
-         id serial primary key,
-         name varchar(100) unique not null,
-         title varchar(100) null
-     )",
-     "create table comments (
-         id serial primary key,
-         thread_id integer not null,
-         parent_id integer null,
-         level1_id integer null,
-         level2_id integer null,
-         level3_id integer null,
-         level4_id integer null,
-         level5_id integer null,
-         level6_id integer null,
-         user_id integer null,
-         name varchar(100) not null,
-         email varchar(100) not null,
-         website varchar(100) not null,
-         ip varchar(100) not null,
-         html text not null,
-         markdown text not null,
-         status varchar(50) not null,
-         created timestamp not null
-     )",
-     "create table users (
-         id serial primary key,
-         username varchar(100) not null,
-         password varchar(200) not null,
-         name varchar(100) not null unique,
-         email varchar(100) not null,
-         website varchar(100) not null,
-         trusted boolean not null default false,
-         admin boolean not null default false
-     )",
-     "create table sessions (
-        id varchar(100) primary key,
-        user_id integer not null,
-        valid_until timestamp not null
-     )",
-    ]),
+use crate::db::{comments::Comments, sessions::Sessions, users::Users};
+
+use super::threads::Threads;
+
+pub static MIGRATIONS: &'static [(&'static str, fn(&dyn SchemaBuilder) -> Vec<String>)] = &[
+    ("V1_Init", |builder| {
+        vec![
+            Table::create()
+                .table(Threads::Table)
+                .col(ColumnDef::new(Threads::Id).integer().auto_increment().primary_key())
+                .col(ColumnDef::new(Threads::Name).string().not_null().unique_key())
+                .col(ColumnDef::new(Threads::Title).string())
+                .build_any(builder),
+            Table::create()
+                .table(Users::Table)
+                .col(ColumnDef::new(Users::Id).integer().auto_increment().primary_key())
+                .col(ColumnDef::new(Users::Username).string().not_null().unique_key())
+                .col(ColumnDef::new(Users::Password).string().not_null())
+                .col(ColumnDef::new(Users::Name).string().not_null())
+                .col(ColumnDef::new(Users::Email).string().not_null())
+                .col(ColumnDef::new(Users::Website).string().not_null())
+                .col(ColumnDef::new(Users::Trusted).boolean().not_null().default(false))
+                .col(ColumnDef::new(Users::Admin).boolean().not_null().default(false))
+                .build_any(builder),
+            Table::create()
+                .table(Sessions::Table)
+                .col(ColumnDef::new(Sessions::Id).string().primary_key())
+                .col(ColumnDef::new(Sessions::UserId).integer().not_null())
+                .col(ColumnDef::new(Sessions::ValidUntil).timestamp().not_null())
+                .foreign_key(ForeignKey::create()
+                    .name("FK_sessions_user_id")
+                    .from(Sessions::Table, Sessions::UserId)
+                    .to(Users::Table, Threads::Id)
+                    .on_delete(ForeignKeyAction::Cascade))
+                .build_any(builder),
+            Table::create()
+                .table(Comments::Table)
+                .col(ColumnDef::new(Comments::Id).integer().auto_increment().primary_key())
+                .col(ColumnDef::new(Comments::ThreadId).integer().not_null())
+                .col(ColumnDef::new(Comments::ParentId).integer())
+                .col(ColumnDef::new(Comments::Level1Id).integer())
+                .col(ColumnDef::new(Comments::Level2Id).integer())
+                .col(ColumnDef::new(Comments::Level3Id).integer())
+                .col(ColumnDef::new(Comments::Level4Id).integer())
+                .col(ColumnDef::new(Comments::Level5Id).integer())
+                .col(ColumnDef::new(Comments::Level6Id).integer())
+                .col(ColumnDef::new(Comments::UserId).integer())
+                .col(ColumnDef::new(Comments::Name).string().not_null())
+                .col(ColumnDef::new(Comments::Email).string().not_null())
+                .col(ColumnDef::new(Comments::Website).string().not_null())
+                .col(ColumnDef::new(Comments::Ip).string().not_null())
+                .col(ColumnDef::new(Comments::Html).text().not_null())
+                .col(ColumnDef::new(Comments::Markdown).text().not_null())
+                .col(ColumnDef::new(Comments::Status).string().not_null())
+                .col(ColumnDef::new(Comments::Created).timestamp().not_null())
+                .foreign_key(ForeignKey::create()
+                    .name("FK_comments_thread_id")
+                    .from(Comments::Table, Comments::ThreadId)
+                    .to(Threads::Table, Threads::Id)
+                    .on_delete(ForeignKeyAction::Cascade))
+                .foreign_key(ForeignKey::create()
+                    .name("FK_comments_user_id")
+                    .from(Comments::Table, Comments::UserId)
+                    .to(Users::Table, Threads::Id)
+                    .on_delete(ForeignKeyAction::SetNull))
+                .build_any(builder),
+        ]
+    }),
 ];
