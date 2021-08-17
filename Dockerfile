@@ -9,7 +9,8 @@ COPY Cargo.toml Cargo.lock ./
 RUN cargo build --release --target x86_64-unknown-linux-musl
 
 COPY src ./src
-RUN cargo install --target x86_64-unknown-linux-musl --path .
+ARG features
+RUN cargo install --target x86_64-unknown-linux-musl --path . --features "$features"
 
 FROM node:16.5.0 AS client-builder
 WORKDIR /usr/src/uncomment

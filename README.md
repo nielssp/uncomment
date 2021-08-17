@@ -22,13 +22,13 @@ Uncomment is a commenting system for blogs and static sites written in Rust and 
 
 ## Usage
 
-Use docker to pull the latest development version of Uncomment:
+Use docker to pull the latest development version of Uncomment for use with an SQLite database:
 
 ```
-docker pull nielssp/uncomment:master
+docker pull nielssp/uncomment:sqlite
 ```
 
-Create a newenvioronment file with at least the following settings:
+Create a new envioronment file with at least the following settings:
 
 ```
 UNCOMMENT_HOST=https://your-website.com,https://uncomment.your-website.com
@@ -53,6 +53,22 @@ Add the following to your website:
     data-uncomment-target="#comments"
     src="https://uncomment.your-website.com/en-GB/embed.js"></script>
 ```
+
+### PostgreSQL
+
+To use PostgreSQL, pull the postgres tag instead:
+
+```
+docker pull nielssp/uncomment:postgres
+```
+
+Add a connection string to the environment file:
+
+```
+UNCOMMENT_DATABASE=postgresql://username:password@hostname:port/dbname
+```
+
+When using a local PostgreSQL database it may make sense to add `--network=host` to the `docker run` command.
 
 ## Server Configuration
 
