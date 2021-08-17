@@ -10,12 +10,11 @@ Uncomment is a commenting system for blogs and static sites written in Rust and 
 * Nested comments
 * Markdown
 * Moderation
-* SQLite
+* SQLite or PostgreSQL
 * Import from Disqus
 
 ## Todo
 
-* PostgreSQL
 * Optional user authentication
 * Optional third party authentication
 * Rule system for automatic moderation
