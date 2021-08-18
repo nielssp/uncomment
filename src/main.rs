@@ -74,7 +74,10 @@ async fn post_comment(
     pool: web::Data<Pool>,
     settings: web::Data<Settings>,
 ) -> actix_web::Result<HttpResponse> {
-    let ip = request.peer_addr().map(|a| a.ip().to_string()).unwrap_or("".to_owned());
+    let ip = match settings.forwarded {
+        true => request.connection_info().realip_remote_addr().unwrap_or("").to_owned(),
+        false => request.peer_addr().map(|a| a.ip().to_string()).unwrap_or("".to_owned()),
+    };
     if settings.rate_limit > 0 {
         let count = comments::count_comments_by_ip(&pool, &ip, Utc::now() - Duration::minutes(settings.rate_limit_interval)).await?;
         info!("rate limit: {} / {} comments in the past {} minutes", count, settings.rate_limit,

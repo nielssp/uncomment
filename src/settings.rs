@@ -11,6 +11,7 @@ use config::{Config, ConfigError, Environment};
 pub struct Settings {
     pub listen: String,
     pub host: String,
+    pub forwarded: bool,
     pub database: String,
     pub secret_key: String,
     pub argon2_iterations: u32,
@@ -31,6 +32,7 @@ impl Settings {
     pub fn new() -> Result<Self, ConfigError> {
         let mut s = Config::default();
         s.set_default("listen", "127.0.0.1:5000")?;
+        s.set_default("forwarded", false)?;
         s.set_default("database", "sqlite:data.db")?;
         s.set_default("argon2_iterations", 192)?;
         s.set_default("argon2_memory_size", 4096)?;

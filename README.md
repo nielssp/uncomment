@@ -76,6 +76,7 @@ Uncomment is configured via environment variables.
 
 * `UNCOMMENT_LISTEN=127.0.0.1:5000` &ndash; hostname and port to listen to
 * `UNCOMMENT_HOST` &ndash; comma-separated list of websites that will be accessing Uncomment
+* `UNCOMMENT_FORWARDED` &ndash; set to true if Uncomment is accessed via a proxy (e.g. nginx proxy_pass) in which case the Forwarded/X-Forwarded-For headers are used to determine users' IP addresses
 * `UNCOMMENT_DATABASE=sqlite:data.db` &ndash; database connection string
 * `UNCOMMENT_SECRET_KEY` &ndash; secret key used as part of Argon2 hash used for password hashing
 * `UNCOMMENT_ARGON2_ITERATIONS=192` &ndash; number of Argon2 iterations to use, more iterations means more secure hash but slower login
