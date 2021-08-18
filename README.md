@@ -32,7 +32,7 @@ Create a new envioronment file with at least the following settings:
 
 ```
 UNCOMMENT_HOST=https://your-website.com,https://uncomment.your-website.com
-UNCOMMENT_SECRET_KEY=<secret key used (a long with a random salt) for hashing password>
+UNCOMMENT_SECRET_KEY=<secret key used (along with a random salt) for hashing password>
 UNCOMMENT_DEFAULT_ADMIN_USERNAME=admin
 UNCOMMENT_DEFAULT_ADMIN_PASSWORD=<password for first login>
 ```
