@@ -228,6 +228,7 @@ class UserRow {
             api: this.data.api,
             user: this.data.user,
             onCancel: () => this.closeEdit(),
+            onDelete: () => this.delete(),
             onSave: user => {
                 this.update(user);
                 this.data.isNew = false;
@@ -249,6 +250,17 @@ class UserRow {
         this.template.email.style.display = user.email ? '' : 'none';
         this.template.website.textContent = user.website;
         this.template.website.style.display = user.website ? '' : 'none';
+    }
+
+    async delete() {
+        if (confirm(`Are you sure you want to delete "${this.data.user.name}"?`)) {
+            try {
+                await this.data.api.delete(`admin/users/${this.data.user.id}`);
+                this.template.root.parentNode?.removeChild(this.template.root);
+            } catch (error) {
+                alert('Server error');
+            }
+        }
     }
 
     closeEdit() {
@@ -316,7 +328,10 @@ const userFormTemplate = `<form class="margin-top">
     </div>
     <div class="flex-row space-between">
         <button data-bind="cancel" type="button">Cancel</button>
-        <button data-bind="submit" type="submit">Save</button>
+        <div>
+            <button data-bind="delete" type="button">Delete</button>
+            <button data-bind="submit" type="submit">Save</button>
+        </div>
     </div>
 </form>`;
 
@@ -335,12 +350,14 @@ class UserForm {
             trusted: HTMLInputElement,
             admin: HTMLInputElement,
             cancel: HTMLButtonElement,
+            delete: HTMLButtonElement,
             submit: HTMLButtonElement,
         },
         private data: {
             api: Api,
             user: User,
             onCancel: () => void,
+            onDelete: () => void,
             onSave: (user: User) => void,
             isNew: boolean,
         }
@@ -350,6 +367,7 @@ class UserForm {
         if (data.isNew) {
             template.password.required = true;
             template.confirmPassword.required = true;
+            template.delete.style.display = 'none';
         } else {
             template.passwordFields.style.display = 'none';
         }
@@ -359,6 +377,7 @@ class UserForm {
         template.trusted.checked = data.user.trusted;
         template.admin.checked = data.user.admin;
         template.cancel.onclick = () => data.onCancel();
+        template.delete.onclick = () => data.onDelete();
         template.root.onsubmit = e => this.submit(e);
     }
 

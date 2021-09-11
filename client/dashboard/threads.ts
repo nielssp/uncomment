@@ -230,6 +230,7 @@ class ThreadRow {
             api: this.data.api,
             thread: this.data.thread,
             onCancel: () => this.closeEdit(),
+            onDelete: () => this.delete(),
             onSave: thread => {
                 this.update(thread);
                 this.data.isNew = false;
@@ -247,6 +248,17 @@ class ThreadRow {
         this.template.name.textContent = thread.name;
         this.template.title.textContent = thread.title;
         this.template.title.style.display = thread.title ? '' : 'none';
+    }
+
+    async delete() {
+        if (confirm(`Are you sure you want to delete "${this.data.thread.name}"?`)) {
+            try {
+                await this.data.api.delete(`admin/threads/${this.data.thread.id}`);
+                this.template.root.parentNode?.removeChild(this.template.root);
+            } catch (error) {
+                alert('Server error');
+            }
+        }
     }
 
     closeEdit() {
@@ -275,7 +287,10 @@ const threadFormTemplate = `<form class="margin-top">
     </div>
     <div class="flex-row space-between">
         <button data-bind="cancel" type="button">Cancel</button>
-        <button data-bind="submit" type="submit">Save</button>
+        <div>
+            <button data-bind="delete" type="button">Delete</button>
+            <button data-bind="submit" type="submit">Save</button>
+        </div>
     </div>
 </form>`;
 
@@ -286,22 +301,27 @@ class ThreadForm {
             name: HTMLInputElement,
             title: HTMLInputElement,
             cancel: HTMLButtonElement,
+            delete: HTMLButtonElement,
             submit: HTMLButtonElement,
         },
         private data: {
             api: Api,
             thread: Thread,
             onCancel: () => void,
+            onDelete: () => void,
             onSave: (thread: Thread) => void,
             isNew: boolean,
         }
     ) {
         template.name.value = data.thread.name;
         template.title.value = data.thread.title;
-        if (!this.data.isNew) {
+        if (this.data.isNew) {
+            template.delete.style.display = 'none';
+        } else {
             template.name.disabled = true;
         }
         template.cancel.onclick = () => data.onCancel();
+        template.delete.onclick = () => data.onDelete();
         template.root.onsubmit = e => this.submit(e);
     }
 

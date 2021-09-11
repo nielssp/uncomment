@@ -327,6 +327,7 @@ class CommentRow {
             api: this.data.api,
             comment: this.data.comment,
             onCancel: () => this.closeEdit(),
+            onDelete: () => this.delete(),
             onSave: comment => {
                 this.update(comment);
                 this.closeEdit();
@@ -374,6 +375,17 @@ class CommentRow {
             this.template.more.style.display = '';
         } else {
             this.template.more.style.display = 'none';
+        }
+    }
+
+    async delete() {
+        if (confirm(`Are you sure you want to delete this comment?`)) {
+            try {
+                await this.data.api.delete(`admin/comments/${this.data.comment.id}`);
+                this.template.root.parentNode?.removeChild(this.template.root);
+            } catch (error) {
+                alert('Server error');
+            }
         }
     }
 
@@ -438,7 +450,10 @@ const commentFormTemplate = `<form class="margin-top">
     </div>
     <div class="flex-row space-between">
         <button data-bind="cancel" type="button">Cancel</button>
-        <button data-bind="submit" type="submit">Save</button>
+        <div>
+            <button data-bind="delete" type="button">Delete</button>
+            <button data-bind="submit" type="submit">Save</button>
+        </div>
     </div>
 </form>`;
 
@@ -451,12 +466,14 @@ class CommentForm {
             website: HTMLInputElement,
             content: HTMLTextAreaElement,
             cancel: HTMLButtonElement,
+            delete: HTMLButtonElement,
             submit: HTMLButtonElement,
         },
         private data: {
             api: Api,
             comment: Comment,
             onCancel: () => void,
+            onDelete: () => void,
             onSave: (comment: Comment) => void,
         }
     ) {
@@ -465,6 +482,7 @@ class CommentForm {
         template.website.value = data.comment.website;
         template.content.value = data.comment.markdown;
         template.cancel.onclick = () => data.onCancel();
+        template.delete.onclick = () => data.onDelete();
         template.root.onsubmit = e => this.submit(e);
     }
 
