@@ -17,6 +17,7 @@ Uncomment is a commenting system for blogs and static sites written in Rust and 
 
 * Optional user authentication
 * Optional third party authentication
+* Notifications (push? email?)
 * Rule system for automatic moderation
 * Akismet (maybe)
 
