@@ -21,7 +21,7 @@ Uncomment is a self-hosted comment system for blogs and static sites written in 
 
 ## Usage
 
-Use docker to pull the latest development version of Uncomment for use with an SQLite database:
+Use docker to pull the latest stable version of Uncomment for use with an SQLite database:
 
 ```
 docker pull nielssp/uncomment:sqlite
