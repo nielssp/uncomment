@@ -41,7 +41,7 @@ You can generate a random secret key with `openssl rand -base64 20`.
 Launch the Uncomment server:
 
 ```
-docker run --rm --name uncomment -p 8080:8080 --env-file <your-env-file> -v <path-to-db-dir>:/db nielssp/uncomment:master
+docker run --rm --name uncomment -p 8080:8080 --env-file <your-env-file> -v <path-to-db-dir>:/db nielssp/uncomment:sqlite
 ````
 
 Add the following to your website:
