@@ -1,5 +1,5 @@
 # Uncomment changelog
 
-## Uncomment 1.0.0
+## Uncomment 0.1.0
 
-Initial stable release of Uncomment.
+Initial working release of Uncomment.
