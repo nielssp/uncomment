@@ -1,8 +1,6 @@
 <h1><img src="client/dashboard/static/logo.svg" height=50 alt="Uncomment"/></h1>
 
-Uncomment is a commenting system for blogs and static sites written in Rust and TypeScript.
-
-**Work in progress**
+Uncomment is a self-hosted comment system for blogs and static sites written in Rust and TypeScript.
 
 ## Features
 
