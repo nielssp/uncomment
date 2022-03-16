@@ -10,7 +10,8 @@ RUN cargo build --release --target x86_64-unknown-linux-musl
 
 COPY src ./src
 ARG features
-RUN cargo install --target x86_64-unknown-linux-musl --path . --features "$features"
+RUN rm ./target/x86_64-unknown-linux-musl/release/deps/uncomment*
+RUN cargo build --release --target x86_64-unknown-linux-musl --features "$features"
 
 FROM node:16.5.0 AS client-builder
 WORKDIR /usr/src/uncomment
@@ -22,7 +23,7 @@ RUN npm run build
 
 FROM alpine:3
 WORKDIR /app
-COPY --from=server-builder /usr/local/cargo/bin/uncomment .
+COPY --from=server-builder /usr/src/uncomment/target/x86_64-unknown-linux-musl/release/uncomment .
 COPY --from=client-builder /usr/src/uncomment/dist dist
 EXPOSE 8080
 VOLUME /db

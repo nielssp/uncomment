@@ -33,6 +33,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: nielssp/uncomment:edge-sqlite
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build and push PostgreSQL image
         uses: docker/build-push-action@v2
@@ -44,3 +46,5 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: nielssp/uncomment:edge-postgres
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
