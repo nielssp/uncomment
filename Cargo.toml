@@ -1,6 +1,6 @@
 [package]
 name = "uncomment"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Niels Sonnich Poulsen <niels@nielssp.dk>"]
 edition = "2018"
 
