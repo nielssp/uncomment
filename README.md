@@ -120,7 +120,7 @@ The client is configured via data-attributes added to the script tag used for em
 <div id="comments"></div>
 <script data-uncomment
     data-uncomment-target="#comments"
-    data-require-name="true"
+    data-uncomment-require-name="true"
     data-uncomment-relative-dates="true"
     src="https://uncomment.your-website.com/en-GB/embed.js"></script>
 ```
