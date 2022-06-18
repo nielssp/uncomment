@@ -69,9 +69,30 @@ UNCOMMENT_DATABASE=postgresql://username:password@hostname:port/dbname
 
 When using a local PostgreSQL database it may make sense to add `--network=host` to the `docker run` command.
 
+### Reverse proxy with nginx and letsencrypt
+
+TODO: step by step
+
+```nginx
+server {
+  listen 443;
+  server_name uncomment.your-website.com;
+
+  location / {
+    proxy_pass http://localhost:8080;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  ssl on;
+  # Certbot managed lines here
+}
+```
+
 ## Server Configuration
 
-Uncomment is configured via environment variables.
+Uncomment is configured via environment variables, you can put these in an environment file and pass them to docker via the `--env-file` argument.
 
 * `UNCOMMENT_LISTEN=127.0.0.1:5000` &ndash; hostname and port to listen to
 * `UNCOMMENT_HOST` &ndash; comma-separated list of websites that will be accessing Uncomment
@@ -93,8 +114,29 @@ Uncomment is configured via environment variables.
 
 ## Client Configuration
 
+The client is configured via data-attributes added to the script tag used for embedding comments:
+
+```html
+<div id="comments"></div>
+<script data-uncomment
+    data-uncomment-target="#comments"
+    data-require-name="true"
+    data-uncomment-relative-dates="true"
+    src="https://uncomment.your-website.com/en-GB/embed.js"></script>
+```
+
+The script tag must be marked with the `data-uncomment` attribute. By default the host-part of the `src` attribute is used as the base path for all API requests to the Uncomment backend, but this can be overridden using the `data-uncomment-host` attribute. So if you're serving the Uncomment script from `https://cdn.your-site.com/embed.js` with Uncomment running on `https://uncomment.your-site.com` you can use the following configuration:
+
+```html
+<script data-uncomment
+    data-uncomment-host="https://uncomment.your-site.com"
+    data-uncomment-target="#comments"
+    src="https://cdn.your-site.com/embed.js"></script>
+```
+
 * `data-uncomment-target` &ndash; selector for the container element used to contain the comments
 * `data-uncomment-id` &ndash; thread name to use instead of `location.pathname`
+* `data-uncomment-host` &ndash; alternative API base path to use instead of `src`
 * `data-uncomment-relative-dates` &ndash; display relative dates like "4 weeks ago", enabled by default
 * `data-uncomment-newest-first` &ndash; whether to display comments sorted chronologically in descending order instead of ascending order
 * `data-uncomment-require-name` &ndash; whether a name is required for posting comments, server should be configured to match

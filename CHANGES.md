@@ -1,5 +1,9 @@
 # Uncomment changelog
 
+## Unreleased
+
+Adds `data-uncomment-host` client configuration attribute.
+
 ## Uncomment 0.1.1
 
 Fixes missing TLS support when using `UNCOMMENT_THREAD_URL` to validate new threads.

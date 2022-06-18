@@ -277,7 +277,10 @@ function initFromScriptTag() {
     if (!scriptSrc) {
         throw new Error('Uncomment script has no src');
     }
-    const api = scriptSrc.replace(/(\/\/[^\/]+)\/.*$/, '$1');
+    let api = script.getAttribute('data-uncomment-host');
+    if (!api) {
+        api = scriptSrc.replace(/(\/\/[^\/]+)\/.*$/, '$1');
+    }
     const targetSelector = script.getAttribute('data-uncomment-target');
     if (!targetSelector) {
         throw new Error('Uncomment script has no target selector');
