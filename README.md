@@ -142,3 +142,49 @@ The script tag must be marked with the `data-uncomment` attribute. By default th
 * `data-uncomment-require-name` &ndash; whether a name is required for posting comments, server should be configured to match
 * `data-uncomment-require-email` &ndash; whether an email is required for posting comments, server should be configured to match
 * `data-uncomment-click-to-load` &ndash; whether to present the user with a button for loading the comments instead of automatically loading them when the page loads
+
+## Building from source
+
+First download the source either using git:
+
+```
+git clone https://github.com/nielssp/uncomment.git
+```
+
+Or by downloading an archive from https://github.com/nielssp/uncomment/releases
+
+### Client
+
+Requirements:
+
+* [node and npm](https://nodejs.org/en/)
+
+To build the frontend open a terminal in the source directory and run the following commands:
+
+```sh
+npm install
+npm run build
+```
+
+The bundled client code is placed in the `dist` directory.
+
+### Server
+
+Requirements:
+
+* [rust and cargo](https://www.rust-lang.org/learn/get-started)
+
+To build the server open a terminal in the source directory and run **one** of the following commands (the first compiles Uncomment with SQLite support, the second compiles Uncomment with PostgreSQL support):
+
+```sh
+cargo build --release
+cargo build --release --features postgres
+```
+
+The executable is placed in the `target/release` directory. You can run it with:
+
+```sh
+./target/release/uncomment
+```
+
+The server expects to find the `dist` directory in the current working directory. See the server configuration section for a list of environment variables that can be used to configure the server.
